@@ -86,6 +86,12 @@ class Result(Generic[A, E], ABC):
     def is_err(self) -> bool: ...
 
     @abstractmethod
+    def map(self, fn: Callable[[A], B]) -> "Result[B, E]": ...
+
+    @abstractmethod
+    def mapErr(self, fn: Callable[[E], F]) -> "Result[A, F]": ...
+
+    @abstractmethod
     def unwrap(self, message: Optional[str] = None) -> Union[A, object] | Never: ...
 
     @abstractmethod
@@ -244,16 +250,17 @@ class Ok(Result[A, E]):
     def __repr__(self) -> str:
         return f"Ok({self.value!r})"
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Ok):
-            return False
-        return self.value == other.value
-
     def __hash__(self) -> int:
         return hash(("ok", self.value))
 
     def __str__(self) -> str:
         return f"Ok({self.value!r})"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Ok):
+            return False
+        other_ok = cast("Ok[A, E]", other)
+        return self.value == other_ok.value
 
 
 class Err(Result[A, E]):
@@ -393,21 +400,22 @@ class Err(Result[A, E]):
         return False
 
     def is_err(self) -> bool:
-        return True
+        return True 
 
     def __repr__(self) -> str:
         return f"Err({self.value!r})"
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Err):
-            return False
-        return self.value == other.value
 
     def __hash__(self) -> int:
         return hash(("err", self.value))
 
     def __str__(self) -> str:
         return f"Err({self.value!r})"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Err):
+            return False
+        other_err = cast("Err[A, E]", other)
+        return self.value == other_err.value
 
 
 # ------------------------------------------------------------
@@ -421,7 +429,10 @@ def map(result: Result[A, E], fn: Callable[[A], B]) -> Result[B, E]: ...
 def map(result: Callable[[A], B]) -> Callable[[Result[A, E]], Result[B, E]]: ...
 
 
-def map(result, fn=None):
+def map(
+    result: Result[A, E] | Callable[[A], B],
+    fn: Callable[[A], B] | None = None,
+) -> Result[B, E] | Callable[[Result[A, E]], Result[B, E]]:
     """
     Transforms success value, passes error through.
 
@@ -433,8 +444,9 @@ def map(result, fn=None):
     >>> map(lambda x: x * 2)(Ok(2))  # Ok(4) - DataLast
     """
     if fn is None:
-        return lambda r: r.map(result)
-    return result.map(fn)
+        _fn = cast(Callable[[A], B], result)
+        return lambda r: r.map(_fn)
+    return cast(Result[A, E], result).map(fn)
 
 
 @overload
@@ -445,7 +457,10 @@ def map_err(result: Result[A, E], fn: Callable[[E], F]) -> Result[A, F]: ...
 def map_err(result: Callable[[E], F]) -> Callable[[Result[A, E]], Result[A, F]]: ...
 
 
-def map_err(result, fn=None):
+def map_err(
+    result: Result[A, E] | Callable[[E], F],
+    fn: Callable[[E], F] | None = None,
+) -> Result[A, F] | Callable[[Result[A, E]], Result[A, F]]:
     """
     Transforms error value, passes success through.
 
@@ -457,8 +472,9 @@ def map_err(result, fn=None):
     >>> map_err(lambda e: e.upper())(Err("fail"))  # Err("FAIL") - DataLast
     """
     if fn is None:
-        return lambda r: r.mapErr(result)
-    return result.mapErr(fn)
+        _fn = cast(Callable[[E], F], result)
+        return lambda r: r.mapErr(_fn)
+    return cast(Result[A, E], result).mapErr(fn)
 
 
 @overload
@@ -469,7 +485,10 @@ def tap(result: Result[A, E], fn: Callable[[A], None]) -> Result[A, E]: ...
 def tap(result: Callable[[A], None]) -> Callable[[Result[A, E]], Result[A, E]]: ...
 
 
-def tap(result, fn=None):
+def tap(
+    result: Result[A, E] | Callable[[A], None],
+    fn: Callable[[A], None] | None = None,
+) -> Result[A, E] | Callable[[Result[A, E]], Result[A, E]]:
     """
     Runs side effect on success value, returns result unchanged.
 
@@ -481,8 +500,9 @@ def tap(result, fn=None):
     >>> tap(print)(Ok(2))  # prints 2, returns Ok(2) - DataLast
     """
     if fn is None:
-        return lambda r: r.tap(result)
-    return result.tap(fn)
+        _fn = cast(Callable[[A], None], result)
+        return lambda r: r.tap(_fn)
+    return cast(Result[A, E], result).tap(fn)
 
 
 @overload
@@ -497,7 +517,10 @@ def tap_async(
 ) -> Callable[[Result[A, E]], Coroutine[None, None, Result[A, E]]]: ...
 
 
-def tap_async(result, fn=None):
+def tap_async(
+    result: Result[A, E] | Callable[[A], Coroutine[None, None, None]],
+    fn: Callable[[A], Coroutine[None, None, None]] | None = None,
+) -> Coroutine[None, None, Result[A, E]] | Callable[[Result[A, E]], Coroutine[None, None, Result[A, E]]]:
     """
     Runs async side effect on success value, returns result unchanged.
 
@@ -509,8 +532,9 @@ def tap_async(result, fn=None):
     >>> await tap_async(async_log)(Ok(2))  # DataLast
     """
     if fn is None:
-        return lambda r: r.tap_async(result)
-    return result.tap_async(fn)
+        _fn = cast(Callable[[A], Coroutine[None, None, None]], result)
+        return lambda r: r.tap_async(_fn)
+    return cast(Result[A, E], result).tap_async(fn)
 
 
 def unwrap(result: Result[A, E], message: Optional[str] = None) -> A:
