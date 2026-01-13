@@ -12,10 +12,12 @@ pip install resultpy
 
 ```python
 from resultpy import Result, safe
-from json import loads
+import json
 
 # Wrap throwing functions
-parsed = safe(lambda: loads('{"name": "John", "age": 30}'))
+def load_user() -> dict[str, str]:
+    return json.loads('{"name": "John", "age": 30}')
+parsed = safe(load_user)
 
 # Check and use
 if parsed.is_ok():
