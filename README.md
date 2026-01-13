@@ -56,16 +56,19 @@ ok = Result.ok(42)
 err = Result.err(ValueError("failed"))
 
 # From throwing function
-result = safe(lambda: risky_operation())
+def risky() -> float:
+    raise ValueError("Invalid input")
+
+result = safe(risky)
 
 # From async function
-result = await safe_async(async_operation)
+async def risky_async() -> float:
+    raise ValueError("Invalid input")
+
+result = await safe_async(risky_async)
 
 # With custom error handling
-result = safe({
-    "try_": lambda: parse(input),
-    "catch": lambda e: ParseError(str(e)),
-})
+result = safe({"try_": risky, "catch": lambda e: "Error: " + str(e)})
 ```
 
 ## Transforming Results
@@ -126,7 +129,7 @@ value = result_err.unwrap_or(0)
 # Pattern match
 value = result_err.match({
     "ok": lambda v: v,
-    "err": lambda e: fallback,
+    "err": lambda e: 0,
 })
 ```
 
@@ -135,12 +138,18 @@ value = result_err.match({
 ```python
 from resultpy import safe, safe_async
 
+def risky() -> float:
+    raise ValueError("Invalid input")
+
 # Sync retry
 result = safe(risky, {"retry": {"times": 3}})
 
 # Async retry with backoff
+async def fetch(url: str) -> str:
+    raise ConnectionError("Network error")
+
 result = await safe_async(
-    fetch_data,
+    lambda: fetch("https://api.example.com"),
     {
         "retry": {
             "times": 3,
