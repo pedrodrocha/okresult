@@ -308,3 +308,40 @@ class TestResult:
             result = Result.err("Error")
             with pytest.raises(Exception, match="Custom message"):
                 unwrap(result, "Custom message")
+
+    class TestAndThen:
+        def test_chains_ok_to_ok(self) -> None:
+            ok: Ok[int, str] = Ok(2)
+
+            def triple(x: int) -> Ok[int, str]:
+                return Ok(x * 3)
+
+            result = ok.and_then(triple)
+            assert result.unwrap() == 6
+
+        def test_chains_ok_to_err(self) -> None:
+            ok: Ok[int, str] = Ok(2)
+
+            def to_err(x: int) -> Err[int, str]:
+                return Err("Error")
+
+            result = ok.and_then(to_err)
+
+            assert result.is_err()
+            assert isinstance(result, Err)
+            assert result.value == "Error"
+
+        def test_short_circuits_on_err(self) -> None:
+            called = False
+
+            def side_effect(x: int) -> Result[int, str]:
+                nonlocal called
+                called = True
+                return Ok(x * 2)
+
+            err: Err[int, str] = Err("Initial Error")
+            result = err.and_then(side_effect)
+            assert (
+                called is False
+            )  # Function should NOT be called when starting with Err
+            assert result.is_err()

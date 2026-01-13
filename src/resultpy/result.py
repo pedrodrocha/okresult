@@ -240,6 +240,30 @@ class Ok(Result[A, E]):
         await fn(self.value)
         return self
 
+    def and_then(self, fn: Callable[[A], Result[B, E]]) -> "Result[B, E]":
+        """
+        Chains another result-producing function.
+
+        Parameters
+        ----------
+        fn : Callable[[A], Result[B, E]]
+            Result-producing function.
+
+        Returns
+        -------
+        Result[B, E]
+            Result of the chained function.
+
+        Examples
+        --------
+        >>> result = Ok(2).and_then(lambda x: Ok(x * 3))
+        Ok(6)
+
+        >>> result = Ok(2).and_then(lambda x: Err("Error"))
+        Err("Error")
+        """
+        return fn(self.value)
+
     def is_ok(self) -> bool:
         return True
 
@@ -393,6 +417,12 @@ class Err(Result[A, E]):
             Side effect function (ignored, never called).
         """
         return self
+
+    def and_then(self, fn: Callable[[A], Result[B, E]]) -> "Err[A, E]":
+        """
+        No-op for Err. Returns self.
+        """
+        return cast("Err[A, E]", self)
 
     def is_ok(self) -> bool:
         return False
