@@ -1,4 +1,4 @@
-from resultpy import Result, Ok, Err, map, map_err, tap, tap_async, unwrap
+from resultpy import Result, Ok, Err, map, map_err, tap, tap_async, unwrap, and_then, and_then_async
 import pytest
 
 
@@ -397,3 +397,152 @@ class TestResult:
             ok: Ok[int, str] = Ok(42)
             with pytest.raises(Exception, match="Expected an error"):
                 ok.unwrap_err("Expected an error")
+
+    class TestAndThenTopLevel:
+        def test_data_first_chains_ok_to_ok(self) -> None:
+            def double(x: int) -> Result[int, str]:
+                return Ok(x * 2)
+
+            ok: Ok[int, str] = Ok(5)
+            result = and_then(ok, double)
+            assert result.unwrap() == 10
+
+        def test_data_first_chains_ok_to_err(self) -> None:
+            def fail(x: int) -> Result[int, str]:
+                return Err("Failed")
+
+            ok: Ok[int, str] = Ok(5)
+            result = and_then(ok, fail)
+            assert result.is_err()
+            assert result.unwrap_err() == "Failed"
+
+        def test_data_first_short_circuits_on_err(self) -> None:
+            called = False
+
+            def side_effect(x: int) -> Result[int, str]:
+                nonlocal called
+                called = True
+                return Ok(x * 2)
+
+            err: Err[int, str] = Err("Initial Error")
+            result = and_then(err, side_effect)
+            assert called is False
+            assert result.is_err()
+
+        def test_data_last_returns_callable(self) -> None:
+            def double(x: int) -> Result[int, str]:
+                return Ok(x * 2)
+
+            doubler = and_then(double)
+            ok: Ok[int, str] = Ok(5)
+            result = doubler(ok)
+            assert result.unwrap() == 10
+
+        def test_data_last_chains_ok_to_err(self) -> None:
+            def fail(x: int) -> Result[int, str]:
+                return Err("Failed")
+
+            failer = and_then(fail)
+            ok: Ok[int, str] = Ok(5)
+            result = failer(ok)
+            assert result.is_err()
+            assert result.unwrap_err() == "Failed"
+
+        def test_data_last_short_circuits_on_err(self) -> None:
+            called = False
+
+            def side_effect(x: int) -> Result[int, str]:
+                nonlocal called
+                called = True
+                return Ok(x * 2)
+
+            transformer = and_then(side_effect)
+            err: Err[int, str] = Err("Initial Error")
+            result = transformer(err)
+            assert called is False
+            assert result.is_err()
+
+        def test_error_union_type(self) -> None:
+            """Test that errors can be of different types (E | F)."""
+            def validate(x: int) -> Result[int, ValueError]:
+                if x < 0:
+                    return Err(ValueError("Negative"))
+                return Ok(x)
+
+            initial: Result[int, str] = Ok(5)
+            result = and_then(initial, validate)
+            assert result.unwrap() == 5
+
+            initial_err: Result[int, str] = Err("String error")
+            result2 = and_then(initial_err, validate)
+            assert result2.is_err()
+
+    class TestAndThenAsyncTopLevel:
+        @pytest.mark.asyncio
+        async def test_data_first_chains_ok_to_ok(self) -> None:
+            async def async_double(x: int) -> Result[int, str]:
+                return Ok(x * 2)
+
+            ok: Ok[int, str] = Ok(5)
+            result = await and_then_async(ok, async_double)
+            assert result.unwrap() == 10
+
+        @pytest.mark.asyncio
+        async def test_data_first_chains_ok_to_err(self) -> None:
+            async def async_fail(x: int) -> Result[int, str]:
+                return Err("Async Failed")
+
+            ok: Ok[int, str] = Ok(5)
+            result = await and_then_async(ok, async_fail)
+            assert result.is_err()
+            assert result.unwrap_err() == "Async Failed"
+
+        @pytest.mark.asyncio
+        async def test_data_first_short_circuits_on_err(self) -> None:
+            called = False
+
+            async def async_side_effect(x: int) -> Result[int, str]:
+                nonlocal called
+                called = True
+                return Ok(x * 2)
+
+            err: Err[int, str] = Err("Initial Error")
+            result = await and_then_async(err, async_side_effect)
+            assert called is False
+            assert result.is_err()
+
+        @pytest.mark.asyncio
+        async def test_data_last_returns_callable(self) -> None:
+            async def async_double(x: int) -> Result[int, str]:
+                return Ok(x * 2)
+
+            doubler = and_then_async(async_double)
+            ok: Ok[int, str] = Ok(5)
+            result = await doubler(ok)
+            assert result.unwrap() == 10
+
+        @pytest.mark.asyncio
+        async def test_data_last_chains_ok_to_err(self) -> None:
+            async def async_fail(x: int) -> Result[int, str]:
+                return Err("Async Failed")
+
+            failer = and_then_async(async_fail)
+            ok: Ok[int, str] = Ok(5)
+            result = await failer(ok)
+            assert result.is_err()
+            assert result.unwrap_err() == "Async Failed"
+
+        @pytest.mark.asyncio
+        async def test_data_last_short_circuits_on_err(self) -> None:
+            called = False
+
+            async def async_side_effect(x: int) -> Result[int, str]:
+                nonlocal called
+                called = True
+                return Ok(x * 2)
+
+            transformer = and_then_async(async_side_effect)
+            err: Err[int, str] = Err("Initial Error")
+            result = await transformer(err)
+            assert called is False
+            assert result.is_err()

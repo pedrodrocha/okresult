@@ -678,3 +678,78 @@ def unwrap(result: Result[A, E], message: Optional[str] = None) -> A:
     >>> unwrap(Err("fail"))  # raises Exception
     """
     return cast(A, result.unwrap(message))
+
+
+@overload
+def and_then(
+    result: Result[A, E], fn: Callable[[A], Result[B, F]]
+) -> Result[B, E | F]: ...
+
+
+@overload
+def and_then(
+    result: Callable[[A], Result[B, F]],
+) -> Callable[[Result[A, E]], Result[B, E | F]]: ...
+
+
+def and_then(
+    result: Result[A, E] | Callable[[A], Result[B, F]],
+    fn: Callable[[A], Result[B, F]] | None = None,
+) -> Result[B, E | F] | Callable[[Result[A, E]], Result[B, E | F]]:
+    """
+    Chains another result-producing function.
+
+    Supports both DataFirst and DataLast calling patterns.
+
+    Examples
+    --------
+    >>> and_then(Ok(2), lambda x: Ok(x * 3))  # Ok(6) - DataFirst
+    >>> and_then(lambda x: Ok(x * 3))(Ok(2))  # Ok(6) - DataLast
+    """
+    if fn is None:
+        _fn = cast(Callable[[A], Result[B, F]], result)
+        return lambda r: cast(Result[B, E | F], r.and_then(cast(Callable[[A], Result[B, E]], _fn)))
+    return cast(Result[B, E | F], cast(Result[A, E], result).and_then(cast(Callable[[A], Result[B, E]], fn)))
+
+
+@overload
+def and_then_async(
+    result: Result[A, E], fn: Callable[[A], Coroutine[None, None, Result[B, F]]]
+) -> Coroutine[None, None, Result[B, E | F]]: ...
+
+
+@overload
+def and_then_async(
+    result: Callable[[A], Coroutine[None, None, Result[B, F]]],
+) -> Callable[[Result[A, E]], Coroutine[None, None, Result[B, E | F]]]: ...
+
+
+def and_then_async(
+    result: Result[A, E] | Callable[[A], Coroutine[None, None, Result[B, F]]],
+    fn: Callable[[A], Coroutine[None, None, Result[B, F]]] | None = None,
+) -> (
+    Coroutine[None, None, Result[B, E | F]]
+    | Callable[[Result[A, E]], Coroutine[None, None, Result[B, E | F]]]
+):
+    """
+    Chains another async result-producing function.
+
+    Supports both DataFirst and DataLast calling patterns.
+
+    Examples
+    --------
+    >>> await and_then_async(Ok(2), async_fn)  # DataFirst
+    >>> await and_then_async(async_fn)(Ok(2))  # DataLast
+    """
+    if fn is None:
+        _fn = cast(Callable[[A], Coroutine[None, None, Result[B, F]]], result)
+        return lambda r: cast(
+            Coroutine[None, None, Result[B, E | F]],
+            r.and_then_async(cast(Callable[[A], Coroutine[None, None, Result[B, E]]], _fn)),
+        )
+    return cast(
+        Coroutine[None, None, Result[B, E | F]],
+        cast(Result[A, E], result).and_then_async(
+            cast(Callable[[A], Coroutine[None, None, Result[B, E]]], fn)
+        ),
+    )
