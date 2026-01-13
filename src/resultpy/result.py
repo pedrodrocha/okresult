@@ -9,6 +9,7 @@ from typing import (
     Optional,
     Union,
     Coroutine,
+    TypedDict,
 )
 from abc import ABC, abstractmethod
 
@@ -31,6 +32,22 @@ E = TypeVar("E")
 Type variable for a transformed generic error type F
 """
 F = TypeVar("F")
+
+
+class Matcher(TypedDict, Generic[A, B, E, F]):
+    """
+    TypedDict for matching Result variants.
+
+    Keys
+    ----
+    ok : Callable[[A], B]
+        Function to call if the result is Ok.
+    err : Callable[[E], F]
+        Function to call if the result is Err.
+    """
+
+    ok: Callable[[A], B]
+    err: Callable[[E], F]
 
 
 class Result(Generic[A, E], ABC):
@@ -115,6 +132,9 @@ class Result(Generic[A, E], ABC):
     async def and_then_async(
         self, fn: Callable[[A], Coroutine[None, None, "Result[B, E]"]]
     ) -> "Result[B, E]": ...
+
+    @abstractmethod
+    def match(self, cases: Matcher[A, B, E, F]) -> B | F: ...
 
 
 class Ok(Result[A, E]):
@@ -317,6 +337,27 @@ class Ok(Result[A, E]):
         """
         return await fn(self.value)
 
+    def match(self, cases: Matcher[A, B, E, F]) -> B | F:
+        """
+        Matches the result and returns the appropriate value.
+
+        Parameters
+        ----------
+        cases : Matcher[A, B, E, F]
+            Dict with 'ok' and 'err' functions.
+
+        Returns
+        -------
+        B | F
+            The value of the appropriate function.
+
+        Examples
+        --------
+        >>> Ok(42).match({"ok": lambda x: x * 2, "err": lambda e: 0})
+        84
+        """
+        return cases["ok"](self.value)
+
     def is_ok(self) -> bool:
         return True
 
@@ -506,6 +547,27 @@ class Err(Result[A, E]):
         No-op for Err. Returns self.
         """
         return cast("Err[A, E]", self)
+
+    def match(self, cases: Matcher[A, B, E, F]) -> B | F:
+        """
+        Matches the result and returns the appropriate value.
+
+        Parameters
+        ----------
+        cases : Matcher[A, B, E, F]
+            Dict with 'ok' and 'err' functions.
+
+        Returns
+        -------
+        B | F
+            The value of the appropriate function.
+
+        Examples
+        --------
+        >>> Err("error").match({"ok": lambda x: x * 2, "err": lambda e: e.upper()})
+        'ERROR'
+        """
+        return cases["err"](self.value)
 
     def is_ok(self) -> bool:
         return False
@@ -708,8 +770,13 @@ def and_then(
     """
     if fn is None:
         _fn = cast(Callable[[A], Result[B, F]], result)
-        return lambda r: cast(Result[B, E | F], r.and_then(cast(Callable[[A], Result[B, E]], _fn)))
-    return cast(Result[B, E | F], cast(Result[A, E], result).and_then(cast(Callable[[A], Result[B, E]], fn)))
+        return lambda r: cast(
+            Result[B, E | F], r.and_then(cast(Callable[[A], Result[B, E]], _fn))
+        )
+    return cast(
+        Result[B, E | F],
+        cast(Result[A, E], result).and_then(cast(Callable[[A], Result[B, E]], fn)),
+    )
 
 
 @overload
@@ -745,7 +812,9 @@ def and_then_async(
         _fn = cast(Callable[[A], Coroutine[None, None, Result[B, F]]], result)
         return lambda r: cast(
             Coroutine[None, None, Result[B, E | F]],
-            r.and_then_async(cast(Callable[[A], Coroutine[None, None, Result[B, E]]], _fn)),
+            r.and_then_async(
+                cast(Callable[[A], Coroutine[None, None, Result[B, E]]], _fn)
+            ),
         )
     return cast(
         Coroutine[None, None, Result[B, E | F]],

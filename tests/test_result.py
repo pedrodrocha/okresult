@@ -1,4 +1,16 @@
-from resultpy import Result, Ok, Err, map, map_err, tap, tap_async, unwrap, and_then, and_then_async
+from typing import Never
+from resultpy import (
+    Result,
+    Ok,
+    Err,
+    map,
+    map_err,
+    tap,
+    tap_async,
+    unwrap,
+    and_then,
+    and_then_async,
+)
 import pytest
 
 
@@ -464,6 +476,7 @@ class TestResult:
 
         def test_error_union_type(self) -> None:
             """Test that errors can be of different types (E | F)."""
+
             def validate(x: int) -> Result[int, ValueError]:
                 if x < 0:
                     return Err(ValueError("Negative"))
@@ -546,3 +559,13 @@ class TestResult:
             result = await transformer(err)
             assert called is False
             assert result.is_err()
+
+    class TestMatch:
+        def test_matches_ok(self) -> None:
+
+            result = Ok[int, Never](42).match({"ok": lambda x: x * 2, "err": lambda e: e.upper()})
+            assert result == 84
+
+        def test_matches_err(self) -> None:
+            result = Err[Never, str]("error").match({"ok": lambda x: x * 2, "err": lambda e: e.upper()})
+            assert result == "ERROR"
