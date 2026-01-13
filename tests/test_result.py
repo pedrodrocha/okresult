@@ -59,9 +59,6 @@ class TestResult:
             ok = Result.ok(5)
             new_ok = ok.map(lambda x: x * 2)
 
-            print(new_ok)
-            print(ok)
-
             assert new_ok == Ok(10)
             assert isinstance(new_ok, Ok)
 
