@@ -281,17 +281,15 @@ class Err(Result[A, E]):
 # These support both DataFirst and DataLast calling patterns:
 #   map(result, fn)  -> DataFirst
 #   map(fn)(result)  -> DataLast
-
-
 @overload
 def map(result: Result[A, E], fn: Callable[[A], B]) -> Result[B, E]: ...
 
 
 @overload
-def map(fn: Callable[[A], B]) -> Callable[[Result[A, E]], Result[B, E]]: ...
+def map(result: Callable[[A], B]) -> Callable[[Result[A, E]], Result[B, E]]: ...
 
 
-def map(result_or_fn, fn=None):  # type: ignore[misc]
+def map(result, fn=None):
     """
     Transforms success value, passes error through.
 
@@ -303,8 +301,8 @@ def map(result_or_fn, fn=None):  # type: ignore[misc]
     >>> map(lambda x: x * 2)(Ok(2))  # Ok(4) - DataLast
     """
     if fn is None:
-        return lambda r: r.map(result_or_fn)
-    return result_or_fn.map(fn)
+        return lambda r: r.map(result)
+    return result.map(fn)
 
 
 @overload
@@ -312,10 +310,10 @@ def map_err(result: Result[A, E], fn: Callable[[E], F]) -> Result[A, F]: ...
 
 
 @overload
-def map_err(fn: Callable[[E], F]) -> Callable[[Result[A, E]], Result[A, F]]: ...
+def map_err(result: Callable[[E], F]) -> Callable[[Result[A, E]], Result[A, F]]: ...
 
 
-def map_err(result_or_fn, fn=None):  # type: ignore[misc]
+def map_err(result, fn=None):
     """
     Transforms error value, passes success through.
 
@@ -327,5 +325,5 @@ def map_err(result_or_fn, fn=None):  # type: ignore[misc]
     >>> map_err(lambda e: e.upper())(Err("fail"))  # Err("FAIL") - DataLast
     """
     if fn is None:
-        return lambda r: r.mapErr(result_or_fn)
-    return result_or_fn.mapErr(fn)
+        return lambda r: r.mapErr(result)
+    return result.mapErr(fn)
