@@ -30,10 +30,50 @@ class TaggedError(ABC, Exception):
 
     @property
     @abstractmethod
-    def tag(self) -> str: ...
+    def tag(self) -> str:
+        """
+        Returns the error tag for pattern matching.
+
+        Returns
+        -------
+        str
+            A unique string identifier for this error type.
+
+        Examples
+        --------
+        >>> class NotFoundError(TaggedError):
+        ...     @property
+        ...     def tag(self) -> str: return "NotFoundError"
+        ...     def __init__(self, id: str):
+        ...         super().__init__(f"Not found: {id}")
+        ...         self.id = id
+        >>> error = NotFoundError("123")
+        >>> error.tag
+        'NotFoundError'
+        """
+        ...
 
     @property
     def message(self) -> str:
+        """
+        Returns the error message.
+
+        Returns
+        -------
+        str
+            The error message.
+
+        Examples
+        --------
+        >>> class TestError(TaggedError):
+        ...     @property
+        ...     def tag(self) -> str: return "TestError"
+        ...     def __init__(self, msg: str):
+        ...         super().__init__(msg)
+        >>> error = TestError("Something went wrong")
+        >>> error.message
+        'Something went wrong'
+        """
         return self._message
 
     def __init__(self, message: str, cause: Optional[object] = None) -> None:
@@ -69,9 +109,20 @@ class TaggedError(ABC, Exception):
         """
         Type guard for any Exception instance.
 
-        Example:
-            if TaggedError.is_error(value):
-                print(value.message)
+        Parameters
+        ----------
+        value : object
+            Value to check.
+
+        Returns
+        -------
+        bool
+            True if the value is an Exception instance, False otherwise.
+
+        Examples
+        --------
+        >>> if TaggedError.is_error(value):
+        ...     print(value.message)
         """
         return isinstance(value, Exception)
 
@@ -79,9 +130,21 @@ class TaggedError(ABC, Exception):
     def is_tagged_error(value: object) -> bool:
         """
         Type guard for TaggedError instances.
-        Example:
-            if TaggedError.is_tagged_error(value):
-                print(value.tag)
+
+        Parameters
+        ----------
+        value : object
+            Value to check.
+
+        Returns
+        -------
+        bool
+            True if the value is a TaggedError instance, False otherwise.
+
+        Examples
+        --------
+        >>> if TaggedError.is_tagged_error(value):
+        ...     print(value.tag)
         """
         return isinstance(value, Exception) and isinstance(value, TaggedError)
 
@@ -91,10 +154,42 @@ class TaggedError(ABC, Exception):
         handlers: Mapping[type["TaggedError"], Callable[..., A]],
     ) -> A:
         """
-        Match by concrete error class.
+        Matches by concrete error class.
 
         Handlers can accept the specific error type (e.g., NotFoundError)
         and will receive an instance of that type at runtime.
+
+        Parameters
+        ----------
+        error : TaggedError
+            Error to match.
+        handlers : Mapping[type[TaggedError], Callable[..., A]]
+            Mapping from error class to handler function.
+            Handlers can accept the specific error type (e.g., NotFoundError)
+            and will receive an instance of that type at runtime.
+
+        Returns
+        -------
+        A
+            Result of the matched handler function.
+
+        Raises
+        ------
+        ValueError
+            If no handler is found for the error type.
+
+        Examples
+        --------
+        >>> class NotFoundError(TaggedError):
+        ...     @property
+        ...     def tag(self) -> str: return "NotFoundError"
+        ...     def __init__(self, id: str):
+        ...         super().__init__(f"Not found: {id}")
+        ...         self.id = id
+        >>> def handle_not_found(e: NotFoundError) -> str:
+        ...     return f"Missing: {e.id}"
+        >>> TaggedError.match(NotFoundError("123"), {NotFoundError: handle_not_found})
+        'Missing: 123'
         """
         error_type = type(error)
         for cls in error_type.__mro__:
@@ -119,7 +214,7 @@ class TaggedError(ABC, Exception):
     ) -> A:
         """
         Partial pattern match on tagged error union.
-        Requires handlers for all _tag variants.
+
         Returns the result of the handler or the otherwise function if no handler is found.
 
         Parameters
@@ -127,11 +222,11 @@ class TaggedError(ABC, Exception):
         error : TaggedError
             Error to match.
         handlers : Dict[str, Callable[..., A]]
-            Dict mapping _tag to handler function.
+            Dictionary mapping tag string to handler function.
             Handlers can accept the specific error type (e.g., NotFoundError)
             and will receive an instance of that type at runtime.
         otherwise : Callable[..., A]
-            Function to call if no handler is found.
+            Function to call if no handler is found for the error's tag.
 
         Returns
         -------
@@ -140,10 +235,24 @@ class TaggedError(ABC, Exception):
 
         Examples
         --------
+        >>> class NotFoundError(TaggedError):
+        ...     @property
+        ...     def tag(self) -> str: return "NotFoundError"
+        ...     def __init__(self, id: str):
+        ...         super().__init__(f"Not found: {id}")
+        ...         self.id = id
+        >>> class ValidationError(TaggedError):
+        ...     @property
+        ...     def tag(self) -> str: return "ValidationError"
+        ...     def __init__(self, field: str):
+        ...         super().__init__(f"Invalid: {field}")
+        ...         self.field = field
+        >>> error = ValidationError("name")
         >>> TaggedError.match_partial(error, {
         ...     "NotFoundError": lambda e: f"Missing: {e.id}",
         ...     "ValidationError": lambda e: f"Invalid: {e.field}",
         ... }, lambda e: f"Unknown error: {e.message}")
+        'Invalid: name'
         """
         tag = error.tag
         handler = handlers.get(tag)

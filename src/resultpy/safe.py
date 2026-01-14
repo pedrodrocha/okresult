@@ -69,9 +69,9 @@ def safe(
 
     Parameters
     ----------
-    thunk_or_options : Callable[[], A] | SafeOptions[A, E]
+    thunk : Callable[[], A] | SafeOptions[A, E]
         Either a callable that may throw, or options with try_/catch.
-    config : SafeConfig | None
+    config : SafeConfig | None, default None
         Optional configuration with retry settings.
 
     Returns
@@ -89,6 +89,12 @@ def safe(
     Err(UnhandledException(ValueError(...)))  # After 3 retries
     >>> safe({"try_": lambda: int("bad"), "catch": lambda e: str(e)})
     Err("invalid literal for int()...")
+    >>> def risky() -> float:
+    ...     raise ValueError("Invalid input")
+    >>> safe(risky)
+    Err(UnhandledException(ValueError('Invalid input')))
+    >>> safe({"try_": risky, "catch": lambda e: "Error: " + str(e)})
+    Err('Error: Invalid input')
     """
 
     def execute() -> Result[A, E] | Result[A, UnhandledException]:
@@ -145,7 +151,7 @@ async def safe_async(
     ----------
     thunk : Callable[[], Awaitable[A]] | SafeOptions[Awaitable[A], E]
         Either an async callable that may throw, or options with try_/catch.
-    config : SafeConfigAsync | None
+    config : SafeConfigAsync | None, default None
         Optional configuration with retry settings (times, delay_ms, backoff).
 
     Returns
@@ -155,10 +161,23 @@ async def safe_async(
 
     Examples
     --------
-    >>> await safe_async(fetch_data)
-    Ok(data)
-    >>> await safe_async(fetch_data, {"retry": {"times": 3, "delay_ms": 1000, "backoff": "exponential"}})
-    Ok(data)  # With retries and exponential backoff
+    >>> async def risky_async() -> float:
+    ...     raise ValueError("Invalid input")
+    >>> await safe_async(risky_async)
+    Err(UnhandledException(ValueError('Invalid input')))
+    >>> async def fetch(url: str) -> str:
+    ...     raise ConnectionError("Network error")
+    >>> await safe_async(
+    ...     lambda: fetch("https://api.example.com"),
+    ...     {
+    ...         "retry": {
+    ...             "times": 3,
+    ...             "delay_ms": 100,
+    ...             "backoff": "exponential",  # or "linear" | "constant"
+    ...         }
+    ...     }
+    ... )
+    Err(UnhandledException(ConnectionError('Network error')))  # After retries
     """
 
     async def execute() -> Result[A, E] | Result[A, UnhandledException]:

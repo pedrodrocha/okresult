@@ -40,7 +40,7 @@ message = parsed.match({
 - [Extracting Values](#extracting-values)
 - [Retry Support](#retry-support)
 - [Generator Composition](#generator-composition) *(TODO)*
-- [Tagged Errors](#tagged-errors) *(TODO)*
+- [Tagged Errors](#tagged-errors)
 - [Serialization](#serialization) *(TODO)*
 - [API Reference](#api-reference)
 

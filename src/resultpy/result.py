@@ -71,70 +71,349 @@ class Result(Generic[A, E], ABC):
     @property
     @abstractmethod
     def status(self) -> Literal["ok", "err"]:
-        """Returns 'ok' or 'err'."""
+        """
+        Returns the status of the result.
+
+        Returns
+        -------
+        Literal["ok", "err"]
+            'ok' for successful results, 'err' for error results.
+        """
         ...
 
     @staticmethod
     def ok[T](value: T) -> "Ok[T, Never]":
         """
-        Creates successful result.
+        Creates a successful result.
+
+        Parameters
+        ----------
+        value : T
+            The success value.
+
+        Returns
+        -------
+        Ok[T, Never]
+            A successful result containing the value.
 
         Examples
         --------
-        >>> Result.ok(42)  # Ok(42)
+        >>> Result.ok(42)
+        Ok(42)
         """
         return Ok(value)
 
     @staticmethod
     def err[U](value: U) -> "Err[Never, U]":
         """
-        Creates error result.
+        Creates an error result.
+
+        Parameters
+        ----------
+        value : U
+            The error value.
+
+        Returns
+        -------
+        Err[Never, U]
+            An error result containing the error value.
 
         Examples
         --------
-        >>> Result.err("failed")  # Err("failed")
+        >>> Result.err(ValueError("failed"))
+        Err(ValueError('failed'))
         """
         return Err(value)
 
     @abstractmethod
-    def is_ok(self) -> bool: ...
+    def is_ok(self) -> bool:
+        """
+        Checks if the result is Ok.
+
+        Returns
+        -------
+        bool
+            True if the result is Ok, False if it is Err.
+
+        Examples
+        --------
+        >>> Result.ok(42).is_ok()
+        True
+        >>> Result.err("error").is_ok()
+        False
+        """
+        ...
 
     @abstractmethod
-    def is_err(self) -> bool: ...
+    def is_err(self) -> bool:
+        """
+        Checks if the result is Err.
+
+        Returns
+        -------
+        bool
+            True if the result is Err, False if it is Ok.
+
+        Examples
+        --------
+        >>> Result.err("error").is_err()
+        True
+        >>> Result.ok(42).is_err()
+        False
+        """
+        ...
 
     @abstractmethod
-    def map(self, fn: Callable[[A], B]) -> "Result[B, E]": ...
+    def map(self, fn: Callable[[A], B]) -> "Result[B, E]":
+        """
+        Transforms the success value if Ok, passes through if Err.
+
+        Parameters
+        ----------
+        fn : Callable[[A], B]
+            Transformation function to apply to the success value.
+
+        Returns
+        -------
+        Result[B, E]
+            Ok with transformed value if Ok, Err unchanged if Err.
+
+        Examples
+        --------
+        >>> Ok(2).map(lambda x: x * 2)
+        Ok(4)
+        >>> Err("error").map(lambda x: x * 2)
+        Err('error')
+        """
+        ...
 
     @abstractmethod
-    def map_err(self, fn: Callable[[E], F]) -> "Result[A, F]": ...
+    def map_err(self, fn: Callable[[E], F]) -> "Result[A, F]":
+        """
+        Transforms the error value if Err, passes through if Ok.
+
+        Parameters
+        ----------
+        fn : Callable[[E], F]
+            Transformation function to apply to the error value.
+
+        Returns
+        -------
+        Result[A, F]
+            Err with transformed error if Err, Ok unchanged if Ok.
+
+        Examples
+        --------
+        >>> Err(ValueError("invalid")).map_err(lambda e: RuntimeError(str(e)))
+        Err(RuntimeError('invalid'))
+        >>> Ok(42).map_err(lambda e: str(e))
+        Ok(42)
+        """
+        ...
 
     @abstractmethod
-    def unwrap(self, message: Optional[str] = None) -> Union[A, object] | Never: ...
+    def unwrap(self, message: Optional[str] = None) -> Union[A, object] | Never:
+        """
+        Extracts the success value or raises an exception.
+
+        Parameters
+        ----------
+        message : Optional[str], default None
+            Custom error message to use if unwrapping fails.
+
+        Returns
+        -------
+        A
+            The success value if Ok.
+
+        Raises
+        ------
+        Exception
+            If the result is Err.
+
+        Examples
+        --------
+        >>> Result.ok(42).unwrap()
+        42
+        >>> Result.err("error").unwrap()  # raises Exception
+        """
+        ...
 
     @abstractmethod
-    def unwrap_or(self, fallback: B) -> Union[A, B]: ...
+    def unwrap_or(self, fallback: B) -> Union[A, B]:
+        """
+        Extracts the success value or returns a fallback.
+
+        Parameters
+        ----------
+        fallback : B
+            Value to return if the result is Err.
+
+        Returns
+        -------
+        A | B
+            The success value if Ok, otherwise the fallback.
+
+        Examples
+        --------
+        >>> Result.ok(42).unwrap_or(0)
+        42
+        >>> Result.err("error").unwrap_or(0)
+        0
+        """
+        ...
 
     @abstractmethod
-    def unwrap_err(self, message: Optional[str] = None) -> E: ...
+    def unwrap_err(self, message: Optional[str] = None) -> E:
+        """
+        Extracts the error value or raises an exception.
+
+        Parameters
+        ----------
+        message : Optional[str], default None
+            Custom error message to use if unwrapping fails.
+
+        Returns
+        -------
+        E
+            The error value if Err.
+
+        Raises
+        ------
+        Exception
+            If the result is Ok.
+
+        Examples
+        --------
+        >>> Result.err("failed").unwrap_err()
+        'failed'
+        >>> Result.ok(42).unwrap_err()  # raises Exception
+        """
+        ...
 
     @abstractmethod
-    def tap(self, fn: Callable[[A], None]) -> "Result[A, E]": ...
+    def tap(self, fn: Callable[[A], None]) -> "Result[A, E]":
+        """
+        Runs a side effect on the success value and returns the result unchanged.
+
+        Parameters
+        ----------
+        fn : Callable[[A], None]
+            Side effect function to call with the success value.
+
+        Returns
+        -------
+        Result[A, E]
+            The original result unchanged.
+
+        Examples
+        --------
+        >>> Ok(42).tap(print)  # prints 42, returns Ok(42)
+        Ok(42)
+        >>> Err("error").tap(print)  # does nothing, returns Err('error')
+        Err('error')
+        """
+        ...
 
     @abstractmethod
     async def tap_async(
         self, fn: Callable[[A], Coroutine[None, None, None]]
-    ) -> "Result[A, E]": ...
+    ) -> "Result[A, E]":
+        """
+        Runs an async side effect on the success value and returns the result unchanged.
+
+        Parameters
+        ----------
+        fn : Callable[[A], Coroutine[None, None, None]]
+            Async side effect function to call with the success value.
+
+        Returns
+        -------
+        Result[A, E]
+            The original result unchanged.
+
+        Examples
+        --------
+        >>> async def log_value(x): print(x)
+        >>> await Ok(42).tap_async(log_value)  # prints 42, returns Ok(42)
+        Ok(42)
+        """
+        ...
 
     @abstractmethod
-    def and_then(self, fn: Callable[[A], "Result[B, E]"]) -> "Result[B, E]": ...
+    def and_then(self, fn: Callable[[A], "Result[B, E]"]) -> "Result[B, E]":
+        """
+        Chains another result-producing function.
+
+        Parameters
+        ----------
+        fn : Callable[[A], Result[B, E]]
+            Function that takes the success value and returns a Result.
+
+        Returns
+        -------
+        Result[B, E]
+            The result of the chained function if Ok, otherwise the original Err.
+
+        Examples
+        --------
+        >>> Ok(2).and_then(lambda x: Ok(x * 3))
+        Ok(6)
+        >>> Ok(2).and_then(lambda x: Err("error") if x < 0 else Ok(x))
+        Ok(2)
+        >>> Err("error").and_then(lambda x: Ok(x * 3))
+        Err('error')
+        """
+        ...
 
     @abstractmethod
     async def and_then_async(
         self, fn: Callable[[A], Coroutine[None, None, "Result[B, E]"]]
-    ) -> "Result[B, E]": ...
+    ) -> "Result[B, E]":
+        """
+        Chains another async result-producing function.
+
+        Parameters
+        ----------
+        fn : Callable[[A], Coroutine[None, None, Result[B, E]]]
+            Async function that takes the success value and returns a Result.
+
+        Returns
+        -------
+        Result[B, E]
+            The result of the chained function if Ok, otherwise the original Err.
+
+        Examples
+        --------
+        >>> async def async_double(x): return Ok(x * 2)
+        >>> await Ok(2).and_then_async(async_double)
+        Ok(4)
+        """
+        ...
 
     @abstractmethod
-    def match(self, cases: Matcher[A, B, E, F]) -> B | F: ...
+    def match(self, cases: Matcher[A, B, E, F]) -> B | F:
+        """
+        Pattern matches on the result, handling both Ok and Err cases.
+
+        Parameters
+        ----------
+        cases : Matcher[A, B, E, F]
+            Dictionary with 'ok' and 'err' handler functions.
+
+        Returns
+        -------
+        B | F
+            The result of the appropriate handler function.
+
+        Examples
+        --------
+        >>> Ok(42).match({"ok": lambda x: x * 2, "err": lambda e: 0})
+        84
+        >>> Err("error").match({"ok": lambda x: x * 2, "err": lambda e: f"Failed: {e}"})
+        'Failed: error'
+        """
+        ...
 
 
 class Ok(Result[A, E]):
@@ -222,53 +501,82 @@ class Ok(Result[A, E]):
         """
         Unwraps the success value.
 
+        Parameters
+        ----------
+        message : Optional[str], default None
+            Unused (for API symmetry with Err.unwrap).
+
         Returns
         -------
         A
-            Success value.
+            The success value.
+
+        Examples
+        --------
+        >>> Ok(42).unwrap()
+        42
         """
         return self.value
 
     def unwrap_or(self, fallback: object) -> A:
         """
-        Unwraps the success value or returns the default value.
+        Unwraps the success value (fallback is unused for Ok).
+
+        Parameters
+        ----------
+        fallback : object
+            Unused (for API symmetry with Err.unwrap_or).
 
         Returns
         -------
         A
-            Success value or default value.
+            The success value.
+
+        Examples
+        --------
+        >>> Ok(42).unwrap_or(0)
+        42
         """
         return self.value
 
     def unwrap_err(self, message: Optional[str] = None) -> Never:
         """
-        Raises because Ok has no error value.
+        Raises an exception because Ok has no error value.
+
+        Parameters
+        ----------
+        message : Optional[str], default None
+            Custom error message, or default message if None.
 
         Raises
         ------
         Exception
-            Always raises.
+            Always raises when called on Ok.
 
         Examples
         --------
-        >>> ok = Ok(42)
-        >>> ok.unwrap_err()  # raises Exception
+        >>> Ok(42).unwrap_err()  # raises Exception
         """
         raise Exception(message or f"unwrap_err called on Ok: {self.value!r}")
 
     def tap(self, fn: Callable[[A], None]) -> "Ok[A, E]":
         """
-        Runs side effect, returns self.
+        Runs a side effect on the success value and returns the result unchanged.
 
         Parameters
         ----------
         fn : Callable[[A], None]
-            Side effect function.
+            Side effect function to call with the success value.
 
         Returns
         -------
         Ok[A, E]
-            Self with side effect applied.
+            Self unchanged.
+
+        Examples
+        --------
+        >>> Ok(42).tap(print)  # prints 42, returns Ok(42)
+        Ok(42)
         """
         fn(self.value)
         return self
@@ -277,12 +585,23 @@ class Ok(Result[A, E]):
         self, fn: Callable[[A], Coroutine[None, None, None]]
     ) -> "Ok[A, E]":
         """
-        Runs async side effect, returns self.
+        Runs an async side effect on the success value and returns the result unchanged.
 
         Parameters
         ----------
         fn : Callable[[A], Coroutine[None, None, None]]
-            Async side effect function.
+            Async side effect function to call with the success value.
+
+        Returns
+        -------
+        Ok[A, E]
+            Self unchanged.
+
+        Examples
+        --------
+        >>> async def log_value(x): print(x)
+        >>> await Ok(42).tap_async(log_value)  # prints 42, returns Ok(42)
+        Ok(42)
         """
         await fn(self.value)
         return self
@@ -294,20 +613,19 @@ class Ok(Result[A, E]):
         Parameters
         ----------
         fn : Callable[[A], Result[B, E]]
-            Result-producing function.
+            Function that takes the success value and returns a Result.
 
         Returns
         -------
         Result[B, E]
-            Result of the chained function.
+            The result of the chained function.
 
         Examples
         --------
-        >>> result = Ok(2).and_then(lambda x: Ok(x * 3))
+        >>> Ok(2).and_then(lambda x: Ok(x * 3))
         Ok(6)
-
-        >>> result = Ok(2).and_then(lambda x: Err("Error"))
-        Err("Error")
+        >>> Ok(2).and_then(lambda x: Err(ValueError("Error")) if x < 0 else Ok(x))
+        Ok(2)
         """
         return fn(self.value)
 
@@ -315,46 +633,46 @@ class Ok(Result[A, E]):
         self, fn: Callable[[A], Coroutine[None, None, Result[B, E]]]
     ) -> "Result[B, E]":
         """
-        Chains another result-producing function.
+        Chains another async result-producing function.
 
         Parameters
         ----------
         fn : Callable[[A], Coroutine[None, None, Result[B, E]]]
-            Result-producing function.
+            Async function that takes the success value and returns a Result.
 
         Returns
         -------
         Result[B, E]
-            Result of the chained function.
+            The result of the chained function.
 
         Examples
         --------
-        >>> result = Ok(2).and_then_async(lambda x: asyncio.sleep(1))
-        Ok(2)
-
-        >>> result = Ok(2).and_then_async(lambda x: Err("Error"))
-        Err("Error")
+        >>> async def async_double(x): return Ok(x * 2)
+        >>> await Ok(2).and_then_async(async_double)
+        Ok(4)
         """
         return await fn(self.value)
 
     def match(self, cases: Matcher[A, B, E, F]) -> B | F:
         """
-        Matches the result and returns the appropriate value.
+        Pattern matches on the result, handling both Ok and Err cases.
 
         Parameters
         ----------
         cases : Matcher[A, B, E, F]
-            Dict with 'ok' and 'err' functions.
+            Dictionary with 'ok' and 'err' handler functions.
 
         Returns
         -------
         B | F
-            The value of the appropriate function.
+            The result of the appropriate handler function.
 
         Examples
         --------
         >>> Ok(42).match({"ok": lambda x: x * 2, "err": lambda e: 0})
         84
+        >>> Ok(42).match({"ok": lambda x: f"Got {x}", "err": lambda e: f"Failed: {e}"})
+        'Got 42'
         """
         return cases["ok"](self.value)
 
@@ -463,23 +781,42 @@ class Err(Result[A, E]):
 
     def unwrap(self, message: Optional[str] = None) -> Never:
         """
-        Throws because Err has no success value.
+        Raises an exception because Err has no success value.
+
+        Parameters
+        ----------
+        message : Optional[str], default None
+            Custom error message, or default message if None.
 
         Raises
         ------
         Exception
-            Always raises.
+            Always raises when called on Err.
+
+        Examples
+        --------
+        >>> Err("error").unwrap()  # raises Exception
         """
         raise Exception(message or f"Unwrap called on Err: {self.value!r}")
 
     def unwrap_or(self, fallback: B) -> B:
         """
-        Unwraps the error value or returns the default value.
+        Returns the fallback value because Err has no success value.
+
+        Parameters
+        ----------
+        fallback : B
+            Value to return.
 
         Returns
         -------
         B
-            Error value or default value.
+            The fallback value.
+
+        Examples
+        --------
+        >>> Err("error").unwrap_or(0)
+        0
         """
         return fallback
 
@@ -489,7 +826,7 @@ class Err(Result[A, E]):
 
         Parameters
         ----------
-        message : Optional[str]
+        message : Optional[str], default None
             Unused (for API symmetry with Ok.unwrap_err).
 
         Returns
@@ -499,15 +836,16 @@ class Err(Result[A, E]):
 
         Examples
         --------
-        >>> err = Err("failed")
-        >>> err.unwrap_err()
+        >>> Err("failed").unwrap_err()
         'failed'
+        >>> Err(ValueError("invalid")).unwrap_err()
+        ValueError('invalid')
         """
         return self.value
 
     def tap(self, fn: Callable[[A], None]) -> "Err[A, E]":
         """
-        No-op for Err. Returns self.
+        No-op for Err. Returns self unchanged.
 
         Parameters
         ----------
@@ -518,6 +856,11 @@ class Err(Result[A, E]):
         -------
         Err[A, E]
             Self unchanged.
+
+        Examples
+        --------
+        >>> Err("error").tap(print)  # does nothing, returns Err('error')
+        Err('error')
         """
         return self
 
@@ -525,18 +868,44 @@ class Err(Result[A, E]):
         self, fn: Callable[[A], Coroutine[None, None, None]]
     ) -> "Err[A, E]":
         """
-        No-op for Err. Returns self.
+        No-op for Err. Returns self unchanged.
 
         Parameters
         ----------
         fn : Callable[[A], Coroutine[None, None, None]]
             Side effect function (ignored, never called).
+
+        Returns
+        -------
+        Err[A, E]
+            Self unchanged.
+
+        Examples
+        --------
+        >>> async def log_value(x): print(x)
+        >>> await Err("error").tap_async(log_value)  # does nothing, returns Err('error')
+        Err('error')
         """
         return self
 
     def and_then(self, fn: Callable[[A], Result[B, E]]) -> "Err[A, E]":
         """
-        No-op for Err. Returns self.
+        No-op for Err. Returns self unchanged.
+
+        Parameters
+        ----------
+        fn : Callable[[A], Result[B, E]]
+            Function (ignored, never called).
+
+        Returns
+        -------
+        Err[A, E]
+            Self unchanged.
+
+        Examples
+        --------
+        >>> Err("error").and_then(lambda x: Ok(x * 2))
+        Err('error')
         """
         return cast("Err[A, E]", self)
 
@@ -544,28 +913,46 @@ class Err(Result[A, E]):
         self, fn: Callable[[A], Coroutine[None, None, Result[B, E]]]
     ) -> "Err[A, E]":
         """
-        No-op for Err. Returns self.
+        No-op for Err. Returns self unchanged.
+
+        Parameters
+        ----------
+        fn : Callable[[A], Coroutine[None, None, Result[B, E]]]
+            Async function (ignored, never called).
+
+        Returns
+        -------
+        Err[A, E]
+            Self unchanged.
+
+        Examples
+        --------
+        >>> async def async_double(x): return Ok(x * 2)
+        >>> await Err("error").and_then_async(async_double)
+        Err('error')
         """
         return cast("Err[A, E]", self)
 
     def match(self, cases: Matcher[A, B, E, F]) -> B | F:
         """
-        Matches the result and returns the appropriate value.
+        Pattern matches on the result, handling both Ok and Err cases.
 
         Parameters
         ----------
         cases : Matcher[A, B, E, F]
-            Dict with 'ok' and 'err' functions.
+            Dictionary with 'ok' and 'err' handler functions.
 
         Returns
         -------
         B | F
-            The value of the appropriate function.
+            The result of the appropriate handler function.
 
         Examples
         --------
-        >>> Err("error").match({"ok": lambda x: x * 2, "err": lambda e: e.upper()})
-        'ERROR'
+        >>> Err("error").match({"ok": lambda x: x * 2, "err": lambda e: f"Failed: {e}"})
+        'Failed: error'
+        >>> Err(ValueError("invalid")).match({"ok": lambda x: x, "err": lambda e: str(e)})
+        'invalid'
         """
         return cases["err"](self.value)
 
@@ -607,14 +994,28 @@ def map(
     fn: Callable[[A], B] | None = None,
 ) -> Result[B, E] | Callable[[Result[A, E]], Result[B, E]]:
     """
-    Transforms success value, passes error through.
+    Transforms the success value if Ok, passes through if Err.
 
-    Supports both DataFirst and DataLast calling patterns.
+    Supports both data-first and data-last calling patterns.
+
+    Parameters
+    ----------
+    result : Result[A, E] | Callable[[A], B]
+        Either a Result to transform, or a function for data-last style.
+    fn : Callable[[A], B] | None, default None
+        Transformation function (required for data-first style).
+
+    Returns
+    -------
+    Result[B, E] | Callable[[Result[A, E]], Result[B, E]]
+        Transformed result, or a function for data-last style.
 
     Examples
     --------
-    >>> map(Ok(2), lambda x: x * 2)  # Ok(4) - DataFirst
-    >>> map(lambda x: x * 2)(Ok(2))  # Ok(4) - DataLast
+    >>> map(Ok(2), lambda x: x * 2)  # Data-first: Ok(4)
+    Ok(4)
+    >>> map(lambda x: x + 1)(Ok(2))  # Data-last: Ok(3)
+    Ok(3)
     """
     if fn is None:
         _fn = cast(Callable[[A], B], result)
@@ -635,14 +1036,28 @@ def map_err(
     fn: Callable[[E], F] | None = None,
 ) -> Result[A, F] | Callable[[Result[A, E]], Result[A, F]]:
     """
-    Transforms error value, passes success through.
+    Transforms the error value if Err, passes through if Ok.
 
-    Supports both DataFirst and DataLast calling patterns.
+    Supports both data-first and data-last calling patterns.
+
+    Parameters
+    ----------
+    result : Result[A, E] | Callable[[E], F]
+        Either a Result to transform, or a function for data-last style.
+    fn : Callable[[E], F] | None, default None
+        Transformation function (required for data-first style).
+
+    Returns
+    -------
+    Result[A, F] | Callable[[Result[A, E]], Result[A, F]]
+        Transformed result, or a function for data-last style.
 
     Examples
     --------
-    >>> map_err(Err("fail"), lambda e: e.upper())  # Err("FAIL") - DataFirst
-    >>> map_err(lambda e: e.upper())(Err("fail"))  # Err("FAIL") - DataLast
+    >>> map_err(Err(ValueError("invalid")), lambda e: RuntimeError(str(e)))  # Data-first
+    Err(RuntimeError('invalid'))
+    >>> map_err(lambda e: RuntimeError(str(e)))(Err(ValueError("invalid")))  # Data-last
+    Err(RuntimeError('invalid'))
     """
     if fn is None:
         _fn = cast(Callable[[E], F], result)
@@ -663,14 +1078,28 @@ def tap(
     fn: Callable[[A], None] | None = None,
 ) -> Result[A, E] | Callable[[Result[A, E]], Result[A, E]]:
     """
-    Runs side effect on success value, returns result unchanged.
+    Runs a side effect on the success value and returns the result unchanged.
 
-    Supports both DataFirst and DataLast calling patterns.
+    Supports both data-first and data-last calling patterns.
+
+    Parameters
+    ----------
+    result : Result[A, E] | Callable[[A], None]
+        Either a Result to tap, or a function for data-last style.
+    fn : Callable[[A], None] | None, default None
+        Side effect function (required for data-first style).
+
+    Returns
+    -------
+    Result[A, E] | Callable[[Result[A, E]], Result[A, E]]
+        The original result unchanged, or a function for data-last style.
 
     Examples
     --------
-    >>> tap(Ok(2), print)  # prints 2, returns Ok(2) - DataFirst
-    >>> tap(print)(Ok(2))  # prints 2, returns Ok(2) - DataLast
+    >>> tap(Ok(2), print)  # Data-first: prints 2, returns Ok(2)
+    Ok(2)
+    >>> tap(print)(Ok(2))  # Data-last: prints 2, returns Ok(2)
+    Ok(2)
     """
     if fn is None:
         _fn = cast(Callable[[A], None], result)
@@ -698,14 +1127,29 @@ def tap_async(
     | Callable[[Result[A, E]], Coroutine[None, None, Result[A, E]]]
 ):
     """
-    Runs async side effect on success value, returns result unchanged.
+    Runs an async side effect on the success value and returns the result unchanged.
 
-    Supports both DataFirst and DataLast calling patterns.
+    Supports both data-first and data-last calling patterns.
+
+    Parameters
+    ----------
+    result : Result[A, E] | Callable[[A], Coroutine[None, None, None]]
+        Either a Result to tap, or a function for data-last style.
+    fn : Callable[[A], Coroutine[None, None, None]] | None, default None
+        Async side effect function (required for data-first style).
+
+    Returns
+    -------
+    Coroutine[None, None, Result[A, E]] | Callable[[Result[A, E]], Coroutine[None, None, Result[A, E]]]
+        The original result unchanged, or a function for data-last style.
 
     Examples
     --------
-    >>> await tap_async(Ok(2), async_log)  # DataFirst
-    >>> await tap_async(async_log)(Ok(2))  # DataLast
+    >>> async def log_value(x): print(x)
+    >>> await tap_async(Ok(2), log_value)  # Data-first: prints 2, returns Ok(2)
+    Ok(2)
+    >>> await tap_async(log_value)(Ok(2))  # Data-last: prints 2, returns Ok(2)
+    Ok(2)
     """
     if fn is None:
         _fn = cast(Callable[[A], Coroutine[None, None, None]], result)
@@ -721,7 +1165,7 @@ def unwrap(result: Result[A, E], message: Optional[str] = None) -> A:
     ----------
     result : Result[A, E]
         The result to unwrap.
-    message : Optional[str]
+    message : Optional[str], default None
         Custom error message if unwrapping fails.
 
     Returns
@@ -736,7 +1180,10 @@ def unwrap(result: Result[A, E], message: Optional[str] = None) -> A:
 
     Examples
     --------
-    >>> unwrap(Ok(42))  # 42
+    >>> unwrap(Ok(42))
+    42
+    >>> unwrap(Ok(42), "custom message")  # returns 42
+    42
     >>> unwrap(Err("fail"))  # raises Exception
     """
     return cast(A, result.unwrap(message))
@@ -761,12 +1208,26 @@ def and_then(
     """
     Chains another result-producing function.
 
-    Supports both DataFirst and DataLast calling patterns.
+    Supports both data-first and data-last calling patterns.
+
+    Parameters
+    ----------
+    result : Result[A, E] | Callable[[A], Result[B, F]]
+        Either a Result to chain, or a function for data-last style.
+    fn : Callable[[A], Result[B, F]] | None, default None
+        Function that takes the success value and returns a Result (required for data-first style).
+
+    Returns
+    -------
+    Result[B, E | F] | Callable[[Result[A, E]], Result[B, E | F]]
+        The result of the chained function, or a function for data-last style.
 
     Examples
     --------
-    >>> and_then(Ok(2), lambda x: Ok(x * 3))  # Ok(6) - DataFirst
-    >>> and_then(lambda x: Ok(x * 3))(Ok(2))  # Ok(6) - DataLast
+    >>> and_then(Ok(2), lambda x: Ok(x * 3))  # Data-first: Ok(6)
+    Ok(6)
+    >>> and_then(lambda x: Ok(x * 3))(Ok(2))  # Data-last: Ok(6)
+    Ok(6)
     """
     if fn is None:
         _fn = cast(Callable[[A], Result[B, F]], result)
@@ -801,12 +1262,27 @@ def and_then_async(
     """
     Chains another async result-producing function.
 
-    Supports both DataFirst and DataLast calling patterns.
+    Supports both data-first and data-last calling patterns.
+
+    Parameters
+    ----------
+    result : Result[A, E] | Callable[[A], Coroutine[None, None, Result[B, F]]]
+        Either a Result to chain, or a function for data-last style.
+    fn : Callable[[A], Coroutine[None, None, Result[B, F]]] | None, default None
+        Async function that takes the success value and returns a Result (required for data-first style).
+
+    Returns
+    -------
+    Coroutine[None, None, Result[B, E | F]] | Callable[[Result[A, E]], Coroutine[None, None, Result[B, E | F]]]
+        The result of the chained function, or a function for data-last style.
 
     Examples
     --------
-    >>> await and_then_async(Ok(2), async_fn)  # DataFirst
-    >>> await and_then_async(async_fn)(Ok(2))  # DataLast
+    >>> async def async_double(x): return Ok(x * 2)
+    >>> await and_then_async(Ok(2), async_double)  # Data-first: Ok(4)
+    Ok(4)
+    >>> await and_then_async(async_double)(Ok(2))  # Data-last: Ok(4)
+    Ok(4)
     """
     if fn is None:
         _fn = cast(Callable[[A], Coroutine[None, None, Result[B, F]]], result)
@@ -839,14 +1315,28 @@ def match(
     handlers: Matcher[A, B, E, B] | None = None,
 ) -> B | Callable[[Result[A, E]], B]:
     """
-    Pattern match on a Result, handling both Ok and Err cases.
+    Pattern matches on a Result, handling both Ok and Err cases.
 
-    Supports both DataFirst and DataLast calling patterns.
+    Supports both data-first and data-last calling patterns.
+
+    Parameters
+    ----------
+    result : Result[A, E] | Matcher[A, B, E, B]
+        Either a Result to match, or a Matcher for data-last style.
+    handlers : Matcher[A, B, E, B] | None, default None
+        Dictionary with 'ok' and 'err' handler functions (required for data-first style).
+
+    Returns
+    -------
+    B | Callable[[Result[A, E]], B]
+        The result of the appropriate handler, or a function for data-last style.
 
     Examples
     --------
-    >>> match(Ok(2), {"ok": lambda x: x * 2, "err": lambda e: 0})  # 4 - DataFirst
-    >>> match({"ok": lambda x: x * 2, "err": lambda e: 0})(Ok(2))  # 4 - DataLast
+    >>> match(Ok(2), {"ok": lambda x: x * 2, "err": lambda e: 0})  # Data-first: 4
+    4
+    >>> match({"ok": lambda x: f"Got {x}", "err": lambda e: f"Failed: {e}"})(Ok(2))  # Data-last
+    'Got 2'
     """
     if handlers is None:
         _handlers = cast(Matcher[A, B, E, B], result)
