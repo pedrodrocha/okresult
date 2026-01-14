@@ -1,15 +1,20 @@
 from abc import ABC, abstractmethod
-from typing import Optional, TypeVar, Dict, Callable
+from typing import Optional, TypeVar, Dict, Callable, Mapping
 
 """
-Type variable for a generic type A
+Type variable for a generic result type A
 """
 A = TypeVar("A")
 
 """
-Type variable for a generic type E bounded to TaggedError
+Type variable for a generic error type E bounded to TaggedError
 """
 E = TypeVar("E", bound="TaggedError")
+
+"""
+Type variable for an alternative generic error type F bounded to TaggedError
+"""
+F = TypeVar("F", bound="TaggedError")
 
 
 class TaggedError(ABC, Exception):
@@ -60,44 +65,36 @@ class TaggedError(ABC, Exception):
         )
 
     @staticmethod
-    def match(error: E, handlers: Dict[str, Callable[[E], A]]) -> A:
+    def match[A](
+        error: "TaggedError",
+        handlers: Mapping[type["TaggedError"], Callable[..., A]],
+    ) -> A:
         """
-        Exhaustive pattern match on tagged error union.
-        Requires handlers for all _tag variants.
+        Match by concrete error class.
 
-        Parameters
-        ----------
-        error : E
-            Error to match.
-        handlers : Dict[str, Callable[[E], T]]
-            Dict mapping _tag to handler function.
-
-        Returns
-        -------
-        T
-            Result of matched handler.
-
-        Examples
-        --------
-        >>> TaggedError.match(error, {
-        ...     "NotFoundError": lambda e: f"Missing: {e.id}",
-        ...     "ValidationError": lambda e: f"Invalid: {e.field}",
-        ... })
-
-        Raises
-        ------
-        ValueError
-            If no handler exists for the error's _tag.
+        Handlers can accept the specific error type (e.g., NotFoundError)
+        and will receive an instance of that type at runtime.
         """
-        tag = error.tag
-        handler = handlers.get(tag)
-        if handler is None:
-            raise ValueError(f"No handler for error tag: {tag}")
-        return handler(error)
+        error_type = type(error)
+        for cls in error_type.__mro__:
+            handler = handlers.get(cls)
+            if handler is not None:
+                # At runtime, error is guaranteed to be an instance of cls
+                # We verify this with isinstance for runtime safety
+                if not isinstance(error, cls):
+                    raise TypeError(
+                        f"Expected {cls.__name__}, got {error_type.__name__}"
+                    )
+                # Callable[..., A] accepts any arguments, so we can pass error directly
+                # The runtime guarantee ensures the handler receives the correct type
+                return handler(error)
+        raise ValueError(f"No handler for error type {error_type.__name__}")
 
     @staticmethod
-    def match_partial(
-        error: E, handlers: Dict[str, Callable[[E], A]], otherwise: Callable[[E], A]
+    def match_partial[A](
+        error: "TaggedError",
+        handlers: Dict[str, Callable[..., A]],
+        otherwise: Callable[..., A],
     ) -> A:
         """
         Partial pattern match on tagged error union.
@@ -106,11 +103,13 @@ class TaggedError(ABC, Exception):
 
         Parameters
         ----------
-        error : E
+        error : TaggedError
             Error to match.
-        handlers : Dict[str, Callable[[E], A]]
+        handlers : Dict[str, Callable[..., A]]
             Dict mapping _tag to handler function.
-        otherwise : Callable[[E], A]
+            Handlers can accept the specific error type (e.g., NotFoundError)
+            and will receive an instance of that type at runtime.
+        otherwise : Callable[..., A]
             Function to call if no handler is found.
 
         Returns
@@ -129,6 +128,8 @@ class TaggedError(ABC, Exception):
         handler = handlers.get(tag)
         if handler is None:
             return otherwise(error)
+        # Callable[..., A] accepts any arguments, so we can pass error directly
+        # The runtime guarantee ensures the handler receives the correct type
         return handler(error)
 
 

@@ -41,6 +41,29 @@ class NetworkError(TaggedError):
 AppError: TypeAlias = Union[NotFoundError, ValidationError, NetworkError]
 
 
+def handle_not_found(e: NotFoundError) -> str:
+    return f"Not found: {e.id}"
+
+
+def handle_validation(e: ValidationError) -> str:
+    return f"Invalid field: {e.field}"
+
+
+def handle_network(e: NetworkError) -> str:
+    return f"Network error: {e.url}"
+
+
+def match_app_error(error: AppError) -> str:
+    return TaggedError.match(
+        error,
+        {
+            NotFoundError: handle_not_found,
+            ValidationError: handle_validation,
+            NetworkError: handle_network,
+        },
+    )
+
+
 class TestTaggedError:
     class TestConstruction:
         def test_has_tag_descriminator(self) -> None:
@@ -90,3 +113,32 @@ class TestTaggedError:
             assert error.__cause__ is cause
             assert str(error.__cause__) == "root cause"
             assert error.message == "wrapper"
+
+    class TestIsError:
+        def test_returns_true_for_exceptions(self) -> None:
+            assert TaggedError.is_error(ValueError("test"))
+
+        def test_returns_true_for_tagged_errors(self) -> None:
+            assert TaggedError.is_error(NotFoundError("123"))
+            assert TaggedError.is_error(ValidationError("name"))
+            assert TaggedError.is_error(NetworkError("https://example.com"))
+
+        def test_returns_false_for_non_exceptions(self) -> None:
+            assert not TaggedError.is_error(123)
+            assert not TaggedError.is_error("test")
+
+    class TestIsTaggedError:
+        def test_returns_true_for_tagged_errors(self) -> None:
+            assert TaggedError.is_tagged_error(NotFoundError("123"))
+            assert TaggedError.is_tagged_error(ValidationError("name"))
+            assert TaggedError.is_tagged_error(NetworkError("https://example.com"))
+
+        def test_returns_false_for_plain_exceptions(self) -> None:
+            assert not TaggedError.is_tagged_error(ValueError("test"))
+
+        def test_returns_false_for_non_exceptions(self) -> None:
+            assert not TaggedError.is_tagged_error(123)
+            assert not TaggedError.is_tagged_error("test")
+
+    class TestMatch:
+        pass
