@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 """
 Type variable for a generic type A
 """
-A = TypeVar("A")
+A = TypeVar("A", covariant=True)
 
 """
 Type variable for a transformed generic type B
@@ -26,7 +26,7 @@ B = TypeVar("B")
 """
 Type variable for a generic error type E
 """
-E = TypeVar("E")
+E = TypeVar("E", covariant=True)
 
 """
 Type variable for a transformed generic error type F

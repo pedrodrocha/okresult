@@ -108,6 +108,34 @@ err_result.match({
     "ok": lambda x: f"Got {x}",
     "err": lambda e: f"Failed: {e}"
 })
+
+
+# Recover from specific errors
+class NotFoundError(TaggedError):
+    __slots__ = ("id",)
+    @property
+    def tag(self) -> str:
+        return "NotFoundError"
+    def __init__(self, id: str) -> None:
+        super().__init__(f"Not found: {id}")
+        self.id = id
+
+def fetch_user(id: str) -> Result[dict[str, str], NotFoundError]:
+    # Could return Ok(user) or Err(NotFoundError(id))
+    if id == "valid":
+        return Result.ok({"name": "John", "id": id})
+    return Result.err(NotFoundError(id))
+
+def recover_from_not_found(e: NotFoundError) -> Result[dict[str, str], NotFoundError]:
+    return Result.ok({"name": "Default User"})
+
+# Recover from specific errors
+result = fetch_user("123").match({
+    "ok": lambda user: Result.ok(user),  # Pass through success
+    "err": lambda e: recover_from_not_found(e) if e.tag == "NotFoundError" else Result.err(e)
+})
+
+
 ```
 
 ## Extracting Values
@@ -166,7 +194,55 @@ result = await safe_async(
 
 ## Tagged Errors
 
-*TODO: Coming soon*
+```python
+class NotFoundError(TaggedError):
+    __slots__ = ("id",)
+    @property
+    def tag(self) -> str:
+        return "NotFoundError"
+    def __init__(self, id: str) -> None:
+        super().__init__(f"Not found: {id}")
+        self.id = id
+
+class ValidationError(TaggedError):
+    __slots__ = ("field",)
+    @property
+    def tag(self) -> str:
+        return "ValidationError"
+    def __init__(self, field: str) -> None:
+        super().__init__(f"Invalid: {field}")
+        self.field = field
+
+AppError: TypeAlias = Union[NotFoundError, ValidationError] 
+
+result_err = Result.err(ValidationError("name"))
+
+def handle_validation_error(e: ValidationError) -> Result[dict[str, str], ValidationError]:
+    return Result.ok({"message": f"Invalid: {e.field}"})
+def handle_not_found_error(e: NotFoundError) -> Result[dict[str, str], NotFoundError]:
+    return Result.ok({"name": "Default User"})
+
+# Exhaustive matching
+result_exhaustive = TaggedError.match(
+    result_err.unwrap_err(),
+    {
+        ValidationError: handle_validation_error,
+        NotFoundError: handle_not_found_error,
+    }
+)
+
+# Partial matching with a fallback
+result_partial = TaggedError.match_partial(
+    result_err.unwrap_err(),
+    {
+        "ValidationError": handle_validation_error,
+        "NotFoundError": handle_not_found_error,
+    },
+    otherwise=lambda: Result.ok({"message": "Unknown error"})
+)
+
+```
+
 
 ## Serialization
 
