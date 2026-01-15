@@ -10,6 +10,7 @@ from typing import (
     Union,
     Coroutine,
     TypedDict,
+    TypeAlias,
 )
 from abc import ABC, abstractmethod
 
@@ -63,6 +64,41 @@ class Matcher(TypedDict, Generic[A, B, E, F]):
 
     ok: Callable[[A], B]
     err: Callable[[E], F]
+
+
+class SerializedOk(TypedDict, Generic[A]):
+    """
+    Serialized representation of an Ok result.
+
+    Keys
+    ----
+    status : Literal["ok"]
+        Indicates the result is Ok.
+    value : A
+        The success value.
+    """
+
+    status: Literal["ok"]
+    value: A
+
+
+class SerializedErr(TypedDict, Generic[E]):
+    """
+    Serialized representation of an Err result.
+
+    Keys
+    ----
+    status : Literal["err"]
+        Indicates the result is Err.
+    value : E
+        The error value.
+    """
+
+    status: Literal["err"]
+    value: E
+
+
+SerializedResult: TypeAlias = Union[SerializedOk[A], SerializedErr[E]]
 
 
 class Result(Generic[A, E], ABC):
@@ -430,6 +466,25 @@ class Result(Generic[A, E], ABC):
         """
         ...
 
+    @abstractmethod
+    def serialize(self) -> SerializedResult[A, E]:
+        """
+        Serializes the Result into a dictionary representation.
+
+        Returns
+        -------
+        SerializedResult[A, E]
+            A dictionary representing the Result.
+
+        Examples
+        --------
+        >>> Result.ok(42).serialize()
+        {'status': 'ok', 'value': 42}
+        >>> Result.err("error").serialize()
+        {'status': 'err', 'value': 'error'}
+        """
+        ...
+
 
 class Ok(Result[A, E]):
     """
@@ -690,6 +745,9 @@ class Ok(Result[A, E]):
         'Got 42'
         """
         return cases["ok"](self.value)
+
+    def serialize(self) -> SerializedOk[A]:
+        return SerializedOk(status="ok", value=self.value)
 
     def is_ok(self) -> bool:
         return True
@@ -970,6 +1028,10 @@ class Err(Result[A, E]):
         'invalid'
         """
         return cases["err"](self.value)
+
+    def serialize(self) -> SerializedErr[E]:
+        value = str(self.value) if isinstance(self.value, Exception) else self.value
+        return SerializedErr(status="err", value=value)
 
     def is_ok(self) -> bool:
         return False

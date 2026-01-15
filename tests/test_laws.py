@@ -83,6 +83,7 @@ class TestMonadLaws:
             if left.is_err() and right.is_err():
                 assert left.unwrap_err() == right.unwrap_err() == "f error"
 
+
 class TestFunctorLaws:
     """
     For a proper implementation of a Functor, we need to ensure that it satisfies the following laws:
@@ -93,7 +94,7 @@ class TestFunctorLaws:
         - fmap = map
         - id = lambda x: x
         - (f . g)(x) = f(g(x))
-    
+
     """
 
     class TestIdentity:

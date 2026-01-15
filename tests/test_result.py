@@ -624,3 +624,23 @@ class TestResult:
 
             assert result_ok == "10"
             assert result_err == "error"
+
+    class TestSerialize:
+        def test_ok_serialization(self) -> None:
+            ok = Result.ok({"key": "value", "number": 42})
+            serialized = ok.serialize()
+            assert serialized == {
+                "status": "ok",
+                "value": {"key": "value", "number": 42},
+            }
+
+        def test_err_serialization(self) -> None:
+            err = Result.err("An error occurred")
+            serialized = err.serialize()
+            assert serialized == {"status": "err", "value": "An error occurred"}
+
+        def test_err_serialization_with_object(self) -> None:
+            error = ValueError("Invalid value")
+            err = Result.err(error)
+            serialized = err.serialize()
+            assert serialized == {"status": "err", "value": str(error)}
