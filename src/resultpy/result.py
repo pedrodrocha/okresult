@@ -14,6 +14,11 @@ from typing import (
 from abc import ABC, abstractmethod
 
 """
+Type variable for method parameters
+"""
+T = TypeVar("T")
+
+"""
 Type variable for a generic type A
 """
 A = TypeVar("A", covariant=True)
@@ -27,6 +32,16 @@ B = TypeVar("B")
 Type variable for a generic error type E
 """
 E = TypeVar("E", covariant=True)
+
+"""
+Type variable for method error parameter U
+"""
+U = TypeVar("U")
+
+"""
+Type variable for a generic type G, contravariant
+"""
+G = TypeVar("G", contravariant=True)
 
 """
 Type variable for a transformed generic error type F
@@ -82,7 +97,7 @@ class Result(Generic[A, E], ABC):
         ...
 
     @staticmethod
-    def ok[T](value: T) -> "Ok[T, Never]":
+    def ok(value: T) -> "Ok[T, Never]":
         """
         Creates a successful result.
 
@@ -104,7 +119,7 @@ class Result(Generic[A, E], ABC):
         return Ok(value)
 
     @staticmethod
-    def err[U](value: U) -> "Err[Never, U]":
+    def err(value: U) -> "Err[Never, U]":
         """
         Creates an error result.
 
