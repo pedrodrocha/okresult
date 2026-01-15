@@ -1,4 +1,4 @@
-from safe_result import Result
+from okresult import Result
 
 
 def f(x: int) -> Result[int, str]:

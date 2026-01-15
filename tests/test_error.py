@@ -1,4 +1,4 @@
-from safe_result import TaggedError, UnhandledException
+from okresult import TaggedError, UnhandledException
 from typing import TypeAlias, Union
 
 

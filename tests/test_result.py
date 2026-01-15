@@ -1,5 +1,5 @@
 from typing import Never
-from safe_result import (
+from okresult import (
     Result,
     Ok,
     Err,

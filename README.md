@@ -1,4 +1,4 @@
-# safe-result
+# okresult
 
 > [!WARNING]
 > ...Still cooking... :man_cook:
@@ -8,13 +8,13 @@ Lightweight Result type for Python, inspired by [better-result](https://github.c
 ## Install
 
 ```bash
-pip install safe-result
+pip install okresult
 ```
 
 ## Quick Start
 
 ```python
-from safe_result import Result, safe
+from okresult import Result, safe
 import json
 
 # Wrap throwing functions
@@ -51,7 +51,7 @@ message = parsed.match({
 ## Creating Results
 
 ```python
-from safe_result import Result, Ok, Err, safe, safe_async
+from okresult import Result, Ok, Err, safe, safe_async
 
 # Success
 ok = Result.ok(42)
@@ -78,7 +78,7 @@ result = safe({"try_": risky, "catch": lambda e: "Error: " + str(e)})
 ## Transforming Results
 
 ```python
-from safe_result import Ok, Err, map as result_map
+from okresult import Ok, Err, map as result_map
 
 result = (
     Ok[int, ValueError](2)
@@ -97,7 +97,7 @@ result_map(lambda x: x + 1)(result)  # Pipeable
 ## Handling Errors
 
 ```python
-from safe_result import Result, TaggedError
+from okresult import Result, TaggedError
 
 err_result: Result[int, ValueError] = Result.err(ValueError("invalid"))
 
@@ -134,7 +134,7 @@ result = fetch_user("123").match({
 ## Extracting Values
 
 ```python
-from safe_result import Result, unwrap
+from okresult import Result, unwrap
 
 result_ok = Result.ok(42)
 result_err = Result.err(ValueError("invalid"))
@@ -160,7 +160,7 @@ value = result_err.match({
 ## Retry Support
 
 ```python
-from safe_result import safe, safe_async
+from okresult import safe, safe_async
 
 def risky() -> float:
     raise ValueError("Invalid input")
@@ -189,7 +189,7 @@ result = await safe_async(
 When `safe()` or `safe_async()` catches an exception without a custom handler, the error type is `UnhandledException`:
 
 ```python
-from safe_result import Result, UnhandledException, safe, safe_async, TaggedError
+from okresult import Result, UnhandledException, safe, safe_async, TaggedError
 import json
 
 # Automatic — error type is UnhandledException
@@ -230,7 +230,7 @@ result = await safe_async({
 ## Tagged Errors
 
 ```python
-from safe_result import Result, TaggedError
+from okresult import Result, TaggedError
 from typing import Union, TypeAlias
 
 class NotFoundError(TaggedError):
@@ -287,7 +287,7 @@ result_partial = TaggedError.match_partial(
 Rehydrate Results from JSON for storage or network transfer.
 
 ```python
-from safe_result import Result
+from okresult import Result
 import json
 
 # Serialize a Result to JSON (e.g., storage or network transfer)
