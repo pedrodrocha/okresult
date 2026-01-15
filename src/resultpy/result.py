@@ -356,13 +356,13 @@ class Result(Generic[A, E], ABC):
         ...
 
     @abstractmethod
-    def and_then(self, fn: Callable[[A], "Result[B, E]"]) -> "Result[B, E]":
+    def and_then(self, fn: Callable[[A], "Result[B, F]"]) -> "Result[B, E | F]":
         """
         Chains another result-producing function.
 
         Parameters
         ----------
-        fn : Callable[[A], Result[B, E]]
+        fn : Callable[[A], Result[B, F]]
             Function that takes the success value and returns a Result.
 
         Returns
@@ -621,18 +621,18 @@ class Ok(Result[A, E]):
         await fn(self.value)
         return self
 
-    def and_then(self, fn: Callable[[A], Result[B, E]]) -> "Result[B, E]":
+    def and_then(self, fn: Callable[[A], "Result[B, F]"]) -> "Result[B, E | F]":
         """
         Chains another result-producing function.
 
         Parameters
         ----------
-        fn : Callable[[A], Result[B, E]]
+        fn : Callable[[A], Result[B, F]]
             Function that takes the success value and returns a Result.
 
         Returns
         -------
-        Result[B, E]
+        Result[B, E | F]
             The result of the chained function.
 
         Examples
@@ -645,19 +645,19 @@ class Ok(Result[A, E]):
         return fn(self.value)
 
     async def and_then_async(
-        self, fn: Callable[[A], Coroutine[None, None, Result[B, E]]]
-    ) -> "Result[B, E]":
+        self, fn: Callable[[A], Coroutine[None, None, Result[B, F]]]
+    ) -> "Result[B, E | F]":
         """
         Chains another async result-producing function.
 
         Parameters
         ----------
-        fn : Callable[[A], Coroutine[None, None, Result[B, E]]]
+        fn : Callable[[A], Coroutine[None, None, Result[B, F]]]
             Async function that takes the success value and returns a Result.
 
         Returns
         -------
-        Result[B, E]
+        Result[B, E | F]
             The result of the chained function.
 
         Examples
@@ -903,13 +903,13 @@ class Err(Result[A, E]):
         """
         return self
 
-    def and_then(self, fn: Callable[[A], Result[B, E]]) -> "Err[A, E]":
+    def and_then(self, fn: Callable[[A], Result[B, F]]) -> "Err[A, E]":
         """
         No-op for Err. Returns self unchanged.
 
         Parameters
         ----------
-        fn : Callable[[A], Result[B, E]]
+        fn : Callable[[A], Result[B, F]]
             Function (ignored, never called).
 
         Returns
@@ -925,14 +925,14 @@ class Err(Result[A, E]):
         return cast("Err[A, E]", self)
 
     async def and_then_async(
-        self, fn: Callable[[A], Coroutine[None, None, Result[B, E]]]
+        self, fn: Callable[[A], Coroutine[None, None, Result[B, F]]]
     ) -> "Err[A, E]":
         """
         No-op for Err. Returns self unchanged.
 
         Parameters
         ----------
-        fn : Callable[[A], Coroutine[None, None, Result[B, E]]]
+        fn : Callable[[A], Coroutine[None, None, Result[B, F]]]
             Async function (ignored, never called).
 
         Returns
