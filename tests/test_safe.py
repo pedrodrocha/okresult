@@ -1,5 +1,5 @@
 import pytest
-from okresult import safe, safe_async, UnhandledException, Panic
+from okresult import safe, safe_async, UnhandledException, Panic, fn
 
 
 class TestSafe:
@@ -29,12 +29,12 @@ class TestSafe:
 
     class TestWithOptions:
         def test_returns_ok_on_success(self) -> None:
-            result = safe({"try_": lambda: 42, "catch": lambda e: str(e)})
+            result = safe({"try_": lambda: 42, "catch": fn[Exception, str](lambda e: str(e))})
             assert result.is_ok()
             assert result.unwrap() == 42
 
         def test_returns_custom_error(self) -> None:
-            result = safe({"try_": lambda: int("bad"), "catch": lambda e: str(e)})
+            result = safe({"try_": lambda: int("bad"), "catch": fn[Exception, str](lambda e: str(e))})
             assert result.is_err()
             assert "invalid literal" in result.unwrap_err()
 
@@ -44,7 +44,7 @@ class TestSafe:
                     self.message = message
 
             result = safe(
-                {"try_": lambda: int("bad"), "catch": lambda e: MyError(str(e))}
+                {"try_": lambda: int("bad"), "catch": fn[Exception, MyError](lambda e: MyError(str(e)))}
             )
             assert result.is_err()
             err = result.unwrap_err()
@@ -58,7 +58,7 @@ class TestSafe:
             result = safe(
                 {
                     "try_": lambda: (_ for _ in ()).throw(CustomException("Oops")),
-                    "catch": lambda e: f"Caught: {e}",
+                    "catch": fn[Exception, str](lambda e: f"Caught: {e}"),
                 }
             )
 
@@ -164,7 +164,7 @@ class TestSafeAsync:
             async def async_fn() -> int:
                 return 42
 
-            result = await safe_async({"try_": async_fn, "catch": lambda e: str(e)})
+            result = await safe_async({"try_": async_fn, "catch": fn[Exception, str](lambda e: str(e))})
             assert result.is_ok()
             assert result.unwrap() == 42
 
@@ -174,7 +174,7 @@ class TestSafeAsync:
                 raise ValueError("Async error")
 
             result = await safe_async(
-                {"try_": async_fn, "catch": lambda e: f"Caught: {e}"}
+                {"try_": async_fn, "catch": fn[Exception, str](lambda e: f"Caught: {e}")}
             )
             assert result.is_err()
             assert result.unwrap_err() == "Caught: Async error"

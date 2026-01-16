@@ -3,6 +3,7 @@ from okresult import (
     Result,
     Ok,
     Err,
+    fn,
     map,
     map_err,
     tap,
@@ -47,14 +48,14 @@ class TestResult:
     class TestMapErr:
         def test_transforms_err_value(self) -> None:
             err = Result.err("Not found")
-            new_err = err.map_err(lambda e: f"Error: {e}")
+            new_err = err.map_err(fn[str, str](lambda e: f"Error: {e}"))
 
             assert new_err == Err("Error: Not found")
             assert isinstance(new_err, Err)
 
         def test_transforms_with_error_object(self) -> None:
             err = Result.err(ValueError("Invalid input"))
-            new_err = err.map_err(lambda e: RuntimeError(f"Wrapped: {e}"))
+            new_err = err.map_err(fn[ValueError, RuntimeError](lambda e: RuntimeError(f"Wrapped: {e}")))
 
             assert isinstance(new_err, Err)
             assert isinstance(new_err.value, RuntimeError)
@@ -62,7 +63,7 @@ class TestResult:
 
         def test_passes_through_ok(self) -> None:
             ok = Result.ok(10)
-            mapped = ok.map_err(lambda e: f"Error: {e}")
+            mapped = ok.map_err(fn[str, str](lambda e: f"Error: {e}"))
 
             assert ok.is_ok() is True
             assert isinstance(mapped, Ok)
@@ -71,14 +72,14 @@ class TestResult:
     class TestMap:
         def test_transforms_ok_value(self) -> None:
             ok = Result.ok(5)
-            new_ok = ok.map(lambda x: x * 2)
+            new_ok = ok.map(fn[int, int](lambda x: x * 2))
 
             assert new_ok == Ok(10)
             assert isinstance(new_ok, Ok)
 
         def test_passes_through_err(self) -> None:
             result = Result.err("fail")
-            mapped = result.map(lambda x: x * 3)
+            mapped = result.map(fn[int, int](lambda x: x * 3))
 
             assert result.is_err() is True
             assert isinstance(mapped, Err)
@@ -180,7 +181,7 @@ class TestResult:
     class TestStandaloneMap:
         def test_data_first_transforms_ok_value(self) -> None:
             result = Result.ok(5)
-            mapped = map(result, lambda x: x * 2)
+            mapped = map(result, fn[int, int](lambda x: x * 2))
             assert mapped.unwrap() == 10
 
         def test_data_last_transforms_ok_value(self) -> None:
@@ -213,7 +214,7 @@ class TestResult:
     class TestStandaloneMapErr:
         def test_data_first_transforms_err_value(self) -> None:
             result = Result.err("Error")
-            mapped = map_err(result, lambda e: f"Error: {e}")
+            mapped = map_err(result, fn[str, str](lambda e: f"Error: {e}"))
             assert mapped == Err("Error: Error")
             assert isinstance(mapped, Err)
 
@@ -690,42 +691,42 @@ class TestResult:
         def test_matches_ok(self) -> None:
 
             result = Ok[int, Never](42).match(
-                {"ok": lambda x: x * 2, "err": lambda e: e.upper()}
+                {"ok": fn[int, int](lambda x: x * 2), "err": fn[str, str](lambda e: e.upper())}
             )
             assert result == 84
 
         def test_matches_err(self) -> None:
             result = Err[Never, str]("error").match(
-                {"ok": lambda x: x * 2, "err": lambda e: e.upper()}
+                {"ok": fn[int, int](lambda x: x * 2), "err": fn[str, str](lambda e: e.upper())}
             )
             assert result == "ERROR"
 
         def test_throws_panic_when_ok_handler_throws(self) -> None:
             ok: Ok[int, str] = Ok(42)
             with pytest.raises(Panic) as exc_info:
-                ok.match({"ok": lambda x: 1 // 0, "err": lambda e: 0})
+                ok.match({"ok": fn[int, int](lambda x: 1 // 0), "err": fn[str, int](lambda e: 0)})
             assert "match" in str(exc_info.value)
 
         def test_throws_panic_when_err_handler_throws(self) -> None:
             err: Err[int, str] = Err("error")
             with pytest.raises(Panic) as exc_info:
-                err.match({"ok": lambda x: 0, "err": lambda e: 1 // 0})
+                err.match({"ok": fn[int, int](lambda x: 0), "err": fn[str, int](lambda e: 1 // 0)})
             assert "match" in str(exc_info.value)
 
     class TestMatchTopLevel:
         def test_data_first_matches_ok(self) -> None:
             ok: Ok[int, str] = Ok(42)
-            result = match(ok, {"ok": lambda x: x * 2, "err": lambda e: 0})
+            result = match(ok, {"ok": fn[int, int](lambda x: x * 2), "err": fn[str, int](lambda e: 0)})
             assert result == 84
 
         def test_data_first_matches_err(self) -> None:
             err: Err[int, str] = Err("error")
-            result = match(err, {"ok": lambda x: 0, "err": lambda e: len(e)})
+            result = match(err, {"ok": fn[int, int](lambda x: 0), "err": fn[str, int](lambda e: len(e))})
             assert result == 5
 
         def test_data_first_matches_error_object(self) -> None:
             err: Err[int, ValueError] = Err(ValueError("error"))
-            result = match(err, {"ok": lambda x: "", "err": lambda e: str(e).upper()})
+            result = match(err, {"ok": fn[int, str](lambda x: ""), "err": fn[ValueError, str](lambda e: str(e).upper())})
             assert result == "ERROR"
 
         def test_data_last_returns_callable(self) -> None:
@@ -756,8 +757,8 @@ class TestResult:
             ok: Ok[int, str] = Ok(10)
             err: Err[int, str] = Err("error")
 
-            result_ok = match(ok, {"ok": lambda x: str(x), "err": lambda e: e})
-            result_err = match(err, {"ok": lambda x: str(x), "err": lambda e: e})
+            result_ok = match(ok, {"ok": fn[int, str](lambda x: str(x)), "err": fn[str, str](lambda e: e)})
+            result_err = match(err, {"ok": fn[int, str](lambda x: str(x)), "err": fn[str, str](lambda e: e)})
 
             assert result_ok == "10"
             assert result_err == "error"
@@ -765,13 +766,13 @@ class TestResult:
         def test_data_first_throws_panic_when_ok_handler_throws(self) -> None:
             ok: Ok[int, str] = Ok(42)
             with pytest.raises(Panic) as exc_info:
-                match(ok, {"ok": lambda x: 1 // 0, "err": lambda e: 0})
+                match(ok, {"ok": fn[int, int](lambda x: 1 // 0), "err": fn[str, int](lambda e: 0)})
             assert "match" in str(exc_info.value)
 
         def test_data_first_throws_panic_when_err_handler_throws(self) -> None:
             err: Err[int, str] = Err("error")
             with pytest.raises(Panic) as exc_info:
-                match(err, {"ok": lambda x: 0, "err": lambda e: 1 // 0})
+                match(err, {"ok": fn[int, int](lambda x: 0), "err": fn[str, int](lambda e: 1 // 0)})
             assert "match" in str(exc_info.value)
 
         def test_data_last_throws_panic_when_ok_handler_throws(self) -> None:

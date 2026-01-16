@@ -1,4 +1,4 @@
-from okresult import Result
+from okresult import Result, fn
 
 
 def f(x: int) -> Result[int, str]:
@@ -51,7 +51,7 @@ class TestMonadLaws:
             m = Result.ok(5)
 
             left = m.and_then(f).and_then(g)
-            right = m.and_then(lambda x: f(x).and_then(g))
+            right = m.and_then(fn[int, Result[int, str]](lambda x: f(x).and_then(g)))
 
             assert left.unwrap() == right.unwrap()
             assert left.unwrap() == 20  # (5 * 2) + 10 = 20
@@ -60,7 +60,7 @@ class TestMonadLaws:
             m = Result.err("error")
 
             left = m.and_then(f).and_then(g)
-            right = m.and_then(lambda x: f(x).and_then(g))
+            right = m.and_then(fn[int, Result[int, str]](lambda x: f(x).and_then(g)))
 
             assert left.is_err() is True
             assert right.is_err() is True
@@ -101,13 +101,13 @@ class TestFunctorLaws:
         # m.map(x => x) ≡ m
         def test_it_holds_for_ok(self):
             m = Result.ok(42)
-            result = m.map(lambda x: x)
+            result = m.map(fn[int, int](lambda x: x))
 
             assert result.unwrap() == m.unwrap()
 
         def test_it_holds_for_err(self):
             m = Result.err("error")
-            result = m.map(lambda x: x)
+            result = m.map(fn[int, int](lambda x: x))
 
             assert result.is_err() is True
 
@@ -125,7 +125,7 @@ class TestFunctorLaws:
 
             m = Result.ok(5)
 
-            left = m.map(lambda x: f(g(x)))
+            left = m.map(fn[int, int](lambda x: f(g(x))))
             right = m.map(g).map(f)
 
             assert left.unwrap() == right.unwrap()
@@ -140,7 +140,7 @@ class TestFunctorLaws:
 
             m = Result.err("error")
 
-            left = m.map(lambda x: f(g(x)))
+            left = m.map(fn[int, int](lambda x: f(g(x))))
             right = m.map(g).map(f)
 
             assert left.is_err() is True
