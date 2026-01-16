@@ -41,7 +41,6 @@ message = parsed.match({
 
 ## Contents
 
-- [Typed Lambda Expressions](#typed-lambda-expressions)
 - [Creating Results](#creating-results)
 - [Transforming Results](#transforming-results)
 - [Handling Errors](#handling-errors)
