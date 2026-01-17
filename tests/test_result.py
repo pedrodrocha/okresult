@@ -1,4 +1,4 @@
-from typing import Any, Generator, Never
+from typing import Never
 from okresult import (
     Result,
     Ok,
@@ -13,6 +13,7 @@ from okresult import (
     and_then_async,
     match,
     Panic,
+    Do,
 )
 import pytest
 
@@ -972,23 +973,22 @@ class TestResult:
             assert isinstance(error, ValueError)
             assert str(error) == "Not an int"
 
-
     class TestGen:
         def test_successfull_computation(self) -> None:
             def parse_int(value: str) -> Result[int, str]:
                 if value.isdigit():
                     return Result.ok(int(value))
                 return Result.err(f"Cannot parse '{value}' as int")
-            
+
             def divide(a: int, b: int) -> Result[float, str]:
                 if b == 0:
                     return Result.err("Division by zero")
                 return Result.ok(a / b)
-            
-            def compute() -> Generator[Result[Any, str], Any, Result[float, str]]:
-                a = yield parse_int("10")
-                b = yield parse_int("2")
-                c = yield divide(a, b)
+
+            def compute() -> Do[float, str]:
+                a: int = yield parse_int("10")
+                b: int = yield parse_int("2")
+                c: float = yield divide(a, b)
                 return Result.ok(c)
-            
+
             assert Result.gen(compute).unwrap() == 5.0

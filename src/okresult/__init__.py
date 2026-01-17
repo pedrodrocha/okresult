@@ -15,6 +15,7 @@ from .result import (
     and_then,
     and_then_async,
     match,
+    Do,
 )
 
 from .safe import (
@@ -31,7 +32,6 @@ from .error import TaggedError, UnhandledException, is_panic, panic, Panic
 
 from .fn import fn
 
-from .do import do, Do
 
 __all__ = [
     # Result types
@@ -47,6 +47,7 @@ __all__ = [
     "unwrap",
     "and_then",
     "and_then_async",
+    "Do",
     "match",
     # Safe functions
     "safe",
@@ -65,7 +66,4 @@ __all__ = [
     "Panic",
     # Function types
     "fn",
-    # Do notation
-    "do",
-    "Do",
 ]

@@ -14,7 +14,7 @@ from typing import (
     TypedDict,
     TypeAlias,
     NoReturn,
-    Generator
+    Generator,
 )
 from abc import ABC, abstractmethod
 
@@ -50,6 +50,9 @@ Type variable for a generic type G, contravariant
 """
 G = TypeVar("G", contravariant=True)
 
+# Type variables for Result.do
+A_do = TypeVar("A_do")
+E_do = TypeVar("E_do")
 
 """
 Type variable for a transformed generic error type F
@@ -135,21 +138,23 @@ class Result(Generic[A, E], ABC):
             Err('failed')
         """
         return Err(value)
-    
+
     @staticmethod
     def gen(
-        fn: Callable[[], Generator["Result[Any, E]", Any, "Result[A, E]"]]
+        fn: Callable[[], Generator["Result[Any, E]", Any, "Result[A, E]"]],
     ) -> "Result[A, E]":
         gen = fn()
 
         try:
-            yielded = next(gen)
+            # Prime the generator
+            yielded = gen.send(None)
 
             while True:
                 if yielded.is_err():
-                    # short-circuits
+                    # short-circuit immediately
                     return cast("Err[Never, E]", yielded)
-                
+
+                # unwrap Ok and send value back
                 yielded = gen.send(yielded.unwrap())
 
         except StopIteration as stop:
@@ -308,6 +313,31 @@ class Result(Generic[A, E], ABC):
                 return Result.err(decoded_error)
         except Exception as e:
             return Result.err(cast(U, e))
+
+
+"""
+Type alias for generator-based Result composition.
+
+Use this type to annotate generator functions that work with Result.gen() for
+do-notation style error handling.
+
+Type Parameters:
+    T: The success value type of the final returned Result
+    E: The error type that can be yielded or returned throughout the computation
+
+Note: The yield and send types are internally typed as Any because generator
+functions can yield Results of different success types (e.g., Result[int, E],
+Result[str, E]) and receive different unwrapped values in the same computation.
+
+Example:
+    >>> def compute() -> Do[int, str]:
+    ...     x: int = yield Ok(5)
+    ...     y: int = yield Ok(10)
+    ...     return Ok(x + y)
+    >>> Result.gen(compute).unwrap()
+    15
+"""
+type Do[T, E] = Generator[Result[Any, E], Any, Result[T, E]]
 
 
 class Ok(Result[A, E]):
