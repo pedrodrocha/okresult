@@ -31,6 +31,8 @@ from .error import TaggedError, UnhandledException, is_panic, panic, Panic
 
 from .fn import fn
 
+from .do import do, Do
+
 __all__ = [
     # Result types
     "Err",
@@ -63,4 +65,7 @@ __all__ = [
     "Panic",
     # Function types
     "fn",
+    # Do notation
+    "do",
+    "Do",
 ]

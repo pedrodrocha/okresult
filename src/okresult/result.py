@@ -1,4 +1,5 @@
 from typing import (
+    Any,
     Awaitable,
     TypeVar,
     Generic,
@@ -13,6 +14,7 @@ from typing import (
     TypedDict,
     TypeAlias,
     NoReturn,
+    Generator
 )
 from abc import ABC, abstractmethod
 
@@ -133,6 +135,28 @@ class Result(Generic[A, E], ABC):
             Err('failed')
         """
         return Err(value)
+    
+    @staticmethod
+    def gen(
+        fn: Callable[[], Generator["Result[Any, E]", Any, "Result[A, E]"]]
+    ) -> "Result[A, E]":
+        gen = fn()
+
+        try:
+            yielded = next(gen)
+
+            while True:
+                if yielded.is_err():
+                    # short-circuits
+                    return cast("Err[Never, E]", yielded)
+                
+                yielded = gen.send(yielded.unwrap())
+
+        except StopIteration as stop:
+            returned = stop.value
+            if not isinstance(returned, Result):
+                panic("Generator function must return a Result")
+            return cast("Result[A, E]", returned)
 
     def is_ok(self) -> bool:
         """Returns True if result is Ok.
