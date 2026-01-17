@@ -1046,3 +1046,16 @@ class TestResult:
             result = Result.gen(compute)
             assert result.is_err()
             assert isinstance(result.unwrap_err(), ErrorB)
+
+        def test_supports_context_binding(self) -> None:
+            class Context:
+                multiplier: int = 10
+
+            ctx = Context()
+
+            def compute(self: Context) -> Do[int, Never]:
+                a: int = yield Result.ok(5)
+                return Result.ok(a * self.multiplier)
+
+            result = Result.gen(compute, ctx)
+            assert result.unwrap() == 50

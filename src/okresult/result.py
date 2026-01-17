@@ -138,7 +138,8 @@ class Result(Generic[A, E], ABC):
 
     @staticmethod
     def gen[GenA, GenE](
-        fn: Callable[[], Generator["Result[object, Any]", Any, "Result[GenA, GenE]"]],
+        fn: Callable[..., Generator["Result[object, Any]", Any, "Result[GenA, GenE]"]],
+        context: object | None = None,
     ) -> "Result[GenA, Any]":
         """Generator-based Result composition (do-notation).
 
@@ -147,6 +148,7 @@ class Result(Generic[A, E], ABC):
 
         Args:
             fn: Generator function that yields Results and returns a Result.
+            context: Optional context object to bind as 'self' to the generator.
 
         Returns:
             Final Result with union of all error types from yields and return.
@@ -161,8 +163,20 @@ class Result(Generic[A, E], ABC):
             ...     return Result.ok(a + b)
             >>> Result.gen(compute)
             Err('failed')
+
+            >>> class Context:
+            ...     multiplier: int = 10
+            >>> ctx = Context()
+            >>> def compute(self: Context) -> Do[int, Never]:
+            ...     a: int = yield Result.ok(5)
+            ...     return Result.ok(a * self.multiplier)
+            >>> Result.gen(compute, ctx)
+            Ok(50)
         """
-        gen = fn()
+        if context is not None:
+            gen = fn.__get__(context, type(context))()
+        else:
+            gen = fn()
 
         try:
             # Prime the generator
