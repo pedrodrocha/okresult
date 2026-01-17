@@ -139,20 +139,6 @@ class Result(Generic[A, E], ABC):
         return Err(value)
 
     @staticmethod
-    async def await_[A_T, E_T](
-        awaitable: Awaitable["Result[A_T, E_T]"],
-    ) -> "Result[A_T, E_T]":
-        """Await a Result.
-
-        Args:
-            awaitable: Awaitable Result.
-
-        Returns:
-            Result.
-        """
-        return await awaitable
-
-    @staticmethod
     def gen[GenA, GenE](
         fn: Callable[..., Generator["Result[object, Any]", Any, "Result[GenA, GenE]"]],
         context: object | None = None,

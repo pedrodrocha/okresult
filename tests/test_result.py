@@ -492,7 +492,7 @@ class TestResult:
             async def get_ok() -> Result[int, str]:
                 return Result.ok(42)
 
-            result = await Result.await_(get_ok())
+            result = await get_ok()
             assert result.is_ok()
             assert result.unwrap() == 42
 
@@ -501,7 +501,7 @@ class TestResult:
             async def get_err() -> Result[int, str]:
                 return Result.err("failed")
 
-            result = await Result.await_(get_err())
+            result = await get_err()
             assert result.is_err()
             assert result.unwrap_err() == "failed"
 
@@ -511,7 +511,7 @@ class TestResult:
                 await asyncio.sleep(0.01)  # Simulate async work
                 return Result.ok(100)
 
-            result = await Result.await_(async_compute())
+            result = await async_compute()
             assert result.is_ok()
             assert result.unwrap() == 100
 
@@ -1392,7 +1392,7 @@ class TestResult:
             assert str(cause) == "cleanup failed on success"
 
         @pytest.mark.asyncio
-        async def test_supports_result_await_helper(self) -> None:
+        async def test_supports_awaiting_async_results(self) -> None:
             async def async_fetch(value: int) -> Result[int, str]:
                 await asyncio.sleep(0.001)
                 if value > 0:
@@ -1400,9 +1400,9 @@ class TestResult:
                 return Result.err("Invalid value")
 
             async def compute() -> DoAsync[float, str]:
-                # Use Result.await_() to wrap Promise<Result>
-                a: int = yield await Result.await_(async_fetch(5))
-                b: int = yield await Result.await_(async_fetch(10))
+                # Await async functions directly - no wrapper needed
+                a: int = yield await async_fetch(5)
+                b: int = yield await async_fetch(10)
                 raise StopAsyncIteration(Result.ok(a + b))
 
             result = await Result.gen_async(compute)
