@@ -5,9 +5,7 @@ from typing import TypeAlias, Union
 class NotFoundError(TaggedError):
     __slots__ = ("id",)
 
-    @property
-    def tag(self) -> str:
-        return "NotFoundError"
+    TAG: str = "NotFoundError"
 
     def __init__(self, id: str) -> None:
         self.id = id
@@ -17,9 +15,7 @@ class NotFoundError(TaggedError):
 class ValidationError(TaggedError):
     __slots__ = ("field",)
 
-    @property
-    def tag(self) -> str:
-        return "ValidationError"
+    TAG: str = "ValidationError"
 
     def __init__(self, field: str) -> None:
         self.field = field
@@ -29,9 +25,7 @@ class ValidationError(TaggedError):
 class NetworkError(TaggedError):
     __slots__ = ("url",)
 
-    @property
-    def tag(self) -> str:
-        return "NetworkError"
+    TAG: str = "NetworkError"
 
     def __init__(self, url: str) -> None:
         self.url = url
@@ -41,9 +35,7 @@ class NetworkError(TaggedError):
 class NotHandledError(TaggedError):
     __slots__ = ()
 
-    @property
-    def tag(self) -> str:
-        return "NotHandledError"
+    TAG: str = "NotHandledError"
 
     def __init__(self) -> None:
         super().__init__("Not handled")
@@ -131,9 +123,7 @@ class TestTaggedError:
             class ErrorWithCause(TaggedError):
                 __slots__ = ()
 
-                @property
-                def tag(self) -> str:
-                    return "ErrorWithCause"
+                TAG: str = "ErrorWithCause"
 
                 def __init__(self) -> None:
                     super().__init__("wrapper", cause)
@@ -199,9 +189,7 @@ class TestTaggedError:
             class NotHandledError(TaggedError):
                 __slots__ = ()
 
-                @property
-                def tag(self) -> str:
-                    return "NotHandledError"
+                TAG: str = "NotHandledError"
 
                 def __init__(self) -> None:
                     super().__init__("Not handled")
@@ -222,13 +210,13 @@ class TestUnhandledException:
     def test_wraps_non_error_cause(self) -> None:
         cause = "root cause"
         error = UnhandledException(cause)
-        assert error.__cause__ is cause
-        assert str(error.__cause__) == "root cause"
+        assert error.cause == cause
+        assert str(error.cause) == "root cause"
         assert error.message == "Unhandled exception: root cause"
 
     def test_handles_none_cause(self) -> None:
         error = UnhandledException(None)
-        print(str(error.__cause__))
-        assert error.__cause__ == "None"
+        print(str(error.cause))
+        assert error.cause is None
         assert str(error.__cause__) == "None"
         assert error.message == "Unhandled exception: None"

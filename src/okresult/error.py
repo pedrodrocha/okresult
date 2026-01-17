@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Optional, TypeVar, Dict, Callable, Union, NoReturn
 
 A = TypeVar("A")
@@ -26,13 +26,19 @@ class TaggedError(ABC, Exception):
     _message: str
     _non_exception_cause: Optional[object]
 
+    TAG: str
+
     @property
-    @abstractmethod
-    def tag(self) -> str: ...
+    def tag(self) -> str:
+        return self.TAG
 
     @property
     def message(self) -> str:
         return self._message
+
+    def __init_subclass__(cls) -> None:
+        if not hasattr(cls, "TAG"):
+            panic(f"Subclass {cls.__name__} must define TAG class attribute")
 
     def __init__(self, message: str, cause: Optional[object] = None) -> None:
         """Initialize tagged error with message and optional cause.
@@ -52,16 +58,19 @@ class TaggedError(ABC, Exception):
             self.__cause__ = None
 
     def __getattribute__(self, name: str) -> Union[BaseException, None, object]:
-        if name == "__cause__":
-            try:
-                non_exception_cause = object.__getattribute__(
-                    self, "_non_exception_cause"
-                )
-                if non_exception_cause is not _NOT_SET:
-                    return non_exception_cause
-            except AttributeError:
-                pass
         return object.__getattribute__(self, name)
+
+    @property
+    def cause(self) -> Optional[object]:
+        """Get the cause (exception or non-exception).
+
+        Returns:
+            The cause if it was set during initialization, None otherwise.
+        """
+        if self._non_exception_cause is not _NOT_SET:
+            cause = self._non_exception_cause
+            return None if cause == "None" else cause
+        return self.__cause__
 
     def __str__(self) -> str:
         return self._message
@@ -157,9 +166,7 @@ class UnhandledException(TaggedError):
         ...     err = UnhandledException(e)
     """
 
-    @property
-    def tag(self) -> str:
-        return "UnhandledException"
+    TAG: str = "UnhandledException"
 
     def __init__(self, cause: object) -> None:
         """Initialize with cause.
@@ -180,9 +187,7 @@ class Panic(TaggedError):
         >>> raise Panic("invariant violated", cause=data)
     """
 
-    @property
-    def tag(self) -> str:
-        return "Panic"
+    TAG: str = "Panic"
 
     def __init__(self, message: str, cause: Optional[object] = None) -> None:
         """Initialize panic with message and optional cause.

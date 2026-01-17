@@ -111,10 +111,10 @@ err_result.map_err(fn[ValueError, RuntimeError](lambda e: RuntimeError(str(e))))
 
 # Recover from specific errors
 class NotFoundError(TaggedError):
+    TAG = "NotFoundError"
+
     __slots__ = ("id",)
-    @property
-    def tag(self) -> str:
-        return "NotFoundError"
+    
     def __init__(self, id: str) -> None:
         super().__init__(f"Not found: {id}")
         self.id = id
@@ -250,11 +250,8 @@ result = safe(lambda: parse_json('{"key": "value"}'))
 
 # Custom handler — you control the error type using TaggedError
 class ParseError(TaggedError):
+    TAG = "ParseError"
     __slots__ = ("cause",)
-    
-    @property
-    def tag(self) -> str:
-        return "ParseError"
     
     def __init__(self, cause: Exception) -> None:
         super().__init__(f"Parse failed: {str(cause)}")
@@ -284,19 +281,15 @@ from okresult import Result, TaggedError, fn
 from typing import Union, TypeAlias
 
 class NotFoundError(TaggedError):
+    TAG = "NotFoundError"
     __slots__ = ("id",)
-    @property
-    def tag(self) -> str:
-        return "NotFoundError"
     def __init__(self, id: str) -> None:
         super().__init__(f"Not found: {id}")
         self.id = id
 
 class ValidationError(TaggedError):
+    TAG = "ValidationError"
     __slots__ = ("field",)
-    @property
-    def tag(self) -> str:
-        return "ValidationError"
     def __init__(self, field: str) -> None:
         super().__init__(f"Invalid: {field}")
         self.field = field
