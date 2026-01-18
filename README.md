@@ -46,6 +46,7 @@ message = parsed.match({
 - [Transforming Results](#transforming-results)
 - [Handling Errors](#handling-errors)
 - [Extracting Values](#extracting-values)
+- [Generator Composition](#generator-composition)
 - [Panic](#panic)
 - [Retry Support](#retry-support)
 - [Tagged Errors](#tagged-errors)
@@ -154,6 +155,119 @@ value = result_err.match({
     "err": fn[ValueError, int](lambda e: 0),
 })
 ```
+
+## Generator Composition
+
+Chain multiple Results without nested callbacks or early returns. Values are automatically unwrapped on success and short-circuited on error.
+
+### Why?
+
+Without generator composition, chaining many operations leads to deeply nested callbacks or "callback hell":
+
+```python
+# Without generator composition - deeply nested callbacks
+def parse_number(s: str) -> Result[int, str]:
+    try:
+        return Result.ok(int(s))
+    except ValueError:
+        return Result.err(f"Invalid number: {s}")
+
+def divide(a: int, b: int) -> Result[float, str]:
+    if b == 0:
+        return Result.err("Division by zero")
+    return Result.ok(a / b)
+
+result = parse_number("10").and_then(
+    lambda a: parse_number("2").and_then(
+        lambda b: divide(a, b).and_then(
+            lambda c: Result.ok(c * 2)  # Another operation
+        )
+    )
+)
+```
+
+With generator composition, the same code reads linearly:
+
+```python
+# With generator composition - clean and readable
+def compute() -> Do[float, str]:
+    a: int = yield parse_number("10")
+    b: int = yield parse_number("2")
+    c: float = yield divide(a, b)
+    d: float = yield Result.ok(c * 2)  # Another operation
+    return Result.ok(d)
+
+result = Result.gen(compute) 
+# ^Result.ok(10)
+```
+
+Generator composition scales infinitely - you can chain as many operations as needed without nesting getting deeper. Each `yield` automatically unwraps `Ok` values and short-circuits on `Err`.
+
+### Synchronous Composition
+
+```python
+from okresult import Result, Do
+
+def parse_number(s: str) -> Result[int, str]:
+    try:
+        return Result.ok(int(s))
+    except ValueError:
+        return Result.err(f"Invalid number: {s}")
+
+def divide(a: int, b: int) -> Result[float, str]:
+    if b == 0:
+        return Result.err("Division by zero")
+    return Result.ok(a / b)
+
+def compute() -> Do[float, str]:
+    a: int = yield parse_number("10")  # Unwraps or short-circuits
+    b: int = yield parse_number("2")
+    c: float = yield divide(a, b)
+    return Result.ok(c)
+
+result = Result.gen(compute)
+# Result[float, str] - errors from all yields are collected into union type
+
+# Short-circuiting on error
+def compute_with_error() -> Do[float, str]:
+    a: int = yield parse_number("10")
+    b: int = yield parse_number("invalid")  # This will short-circuit
+    c: float = yield divide(a, b)
+    return Result.ok(c)
+
+result_err = Result.gen(compute_with_error)
+# Returns Err("Invalid number: invalid")
+```
+
+### Async Composition
+
+```python
+from okresult import Result, DoAsync
+import asyncio
+
+async def fetch_user(id: int) -> Result[dict[str, str], str]:
+    await asyncio.sleep(0.001)  # Simulate async work
+    if id > 0:
+        return Result.ok({"name": "John", "id": str(id)})
+    return Result.err("Invalid user ID")
+
+async def fetch_posts(user_id: str) -> Result[list[dict[str, str]], str]:
+    await asyncio.sleep(0.001)  # Simulate async work
+    return Result.ok([{"title": "Post 1"}, {"title": "Post 2"}])
+
+async def load_user_data() -> DoAsync[dict[str, object], str]:
+    user_id = 123
+    user = yield await fetch_user(user_id)
+    posts = yield await fetch_posts(user["id"])
+    yield Result.ok({"user": user, "posts": posts})
+
+result = await Result.gen_async(load_user_data)
+# Result[dict[str, object], str]
+```
+
+Errors from all yielded Results are automatically collected into the final error union type. The generator short-circuits on the first `Err`, so subsequent yields are skipped.
+
+**Note:** Async generators must yield the final Result as the last value (non-empty `return` statements are a SyntaxError per [PEP 525](https://peps.python.org/pep-0525/)). Raising `StopAsyncIteration` with a value is not supported at the moment by choice. Always use `yield Result.ok(...)` instead.
 
 ## Panic
 
@@ -404,6 +518,8 @@ Instead of requiring verbose named functions or explicit `Callable` annotations,
 | `Result[A, E]` | Base type for results (Ok or Err) |
 | `Ok[A, E]` | Success variant |
 | `Err[A, E]` | Error variant |
+| `Do[A, E]` | Type alias for Generator[Result[Any, E], Any, Result[A, E]] |
+| `DoAsync[A, E]` | Type alias for AsyncGenerator[Result[Any, E], Any] |
 | `Matcher[A, B, E, F]` | TypedDict for pattern matching |
 | `TaggedError` | Base class for tagged errors |
 | `UnhandledException` | Error type for unhandled exceptions |
@@ -414,6 +530,8 @@ Instead of requiring verbose named functions or explicit `Callable` annotations,
 |----------|-------------|
 | `Result.ok(value)` | Create success result |
 | `Result.err(error)` | Create error result |
+| `Result.gen(fn, context?)` | Generator-based Result composition (do-notation); returns Result[GenA, GenE] |
+| `Result.gen_async(fn, context?)` | Async generator-based Result composition; returns Result[GenA, GenE] \| None |
 | `Result.hydrate(data)` | Deserialize from dict; returns Result[object, object] \| None |
 | `Result.hydrate_as(data, *, ok, err)` | Typed deserialization with decoders; returns Result[T, U] \| None |
 | `Ok(value)` | Create Ok instance |

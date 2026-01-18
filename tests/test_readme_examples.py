@@ -8,8 +8,12 @@ from okresult import (
     unwrap,
     TaggedError,
     Panic,
+    Do,
+    DoAsync,
 )
 import json
+import asyncio
+import pytest
 
 
 class TestQuickStart:
@@ -347,3 +351,120 @@ class TestSerialization:
         assert typed is not None
         assert typed.is_ok()
         assert typed.unwrap() == 42
+
+
+class TestGeneratorComposition:
+    def test_motivation_nested_callbacks(self) -> None:
+        def parse_number(s: str) -> Result[int, str]:
+            try:
+                return Result.ok(int(s))
+            except ValueError:
+                return Result.err(f"Invalid number: {s}")
+
+        def divide(a: int, b: int) -> Result[float, str]:
+            if b == 0:
+                return Result.err("Division by zero")
+            return Result.ok(a / b)
+
+        result = parse_number("10").and_then(
+            lambda a: parse_number("2").and_then(
+                lambda b: divide(a, b).and_then(
+                    lambda c: Result.ok(c * 2)  # Another operation
+                )
+            )
+        )
+        assert result.is_ok()
+        assert result.unwrap() == 10.0
+
+    def test_motivation_generator_composition(self) -> None:
+        def parse_number(s: str) -> Result[int, str]:
+            try:
+                return Result.ok(int(s))
+            except ValueError:
+                return Result.err(f"Invalid number: {s}")
+
+        def divide(a: int, b: int) -> Result[float, str]:
+            if b == 0:
+                return Result.err("Division by zero")
+            return Result.ok(a / b)
+
+        def compute() -> Do[float, str]:
+            a: int = yield parse_number("10")
+            b: int = yield parse_number("2")
+            c: float = yield divide(a, b)
+            d: float = yield Result.ok(c * 2)  # Another operation
+            return Result.ok(d)
+
+        result = Result.gen(compute)
+        assert result.is_ok()
+        assert result.unwrap() == 10.0
+
+    def test_synchronous_composition(self) -> None:
+        def parse_number(s: str) -> Result[int, str]:
+            try:
+                return Result.ok(int(s))
+            except ValueError:
+                return Result.err(f"Invalid number: {s}")
+
+        def divide(a: int, b: int) -> Result[float, str]:
+            if b == 0:
+                return Result.err("Division by zero")
+            return Result.ok(a / b)
+
+        def compute() -> Do[float, str]:
+            a: int = yield parse_number("10")  # Unwraps or short-circuits
+            b: int = yield parse_number("2")
+            c: float = yield divide(a, b)
+            return Result.ok(c)
+
+        result = Result.gen(compute)
+        assert result.is_ok()
+        assert result.unwrap() == 5.0
+
+    def test_synchronous_composition_short_circuit(self) -> None:
+        def parse_number(s: str) -> Result[int, str]:
+            try:
+                return Result.ok(int(s))
+            except ValueError:
+                return Result.err(f"Invalid number: {s}")
+
+        def divide(a: int, b: int) -> Result[float, str]:
+            if b == 0:
+                return Result.err("Division by zero")
+            return Result.ok(a / b)
+
+        def compute_with_error() -> Do[float, str]:
+            a: int = yield parse_number("10")
+            b: int = yield parse_number("invalid")  # This will short-circuit
+            c: float = yield divide(a, b)
+            return Result.ok(c)
+
+        result_err = Result.gen(compute_with_error)
+        assert result_err.is_err()
+        assert "Invalid number" in result_err.unwrap_err()
+
+    @pytest.mark.asyncio
+    async def test_async_composition(self) -> None:
+        async def fetch_user(id: int) -> Result[dict[str, str], str]:
+            await asyncio.sleep(0.001)  # Simulate async work
+            if id > 0:
+                return Result.ok({"name": "John", "id": str(id)})
+            return Result.err("Invalid user ID")
+
+        async def fetch_posts(user_id: str) -> Result[list[dict[str, str]], str]:
+            await asyncio.sleep(0.001)  # Simulate async work
+            return Result.ok([{"title": "Post 1"}, {"title": "Post 2"}])
+
+        async def load_user_data() -> DoAsync[dict[str, object], str]:
+            user_id = 123
+            user = yield await fetch_user(user_id)
+            posts = yield await fetch_posts(user["id"])
+            yield Result.ok({"user": user, "posts": posts})
+
+        result = await Result.gen_async(load_user_data)
+        assert result is not None
+        assert result.is_ok()
+        data = result.unwrap()
+        assert isinstance(data, dict)
+        assert "user" in data
+        assert "posts" in data
