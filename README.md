@@ -548,10 +548,12 @@ Instead of requiring verbose named functions or explicit `Callable` annotations,
 |----------|-------------|
 | `Result.ok(value)` | Create success result |
 | `Result.err(error)` | Create error result |
-| `Result.gen(fn, context?)` | Generator-based Result composition (do-notation); returns Result[GenA, GenE] |
-| `Result.gen_async(fn, context?)` | Async generator-based Result composition; returns Result[GenA, GenE] \| None |
-| `Result.hydrate(data)` | Deserialize from dict; returns Result[object, object] \| None |
-| `Result.hydrate_as(data, *, ok, err)` | Typed deserialization with decoders; returns Result[T, U] \| None |
+| `Result.gen(fn, context?)` | Generator-based Result composition (do-notation) |
+| `Result.gen_async(fn, context?)` | Async generator-based Result composition |
+| `Result.flatten(result)` | Flatten nested Result into single Result  |
+| `Result.partition(results)` | Partition iterable of Results into a tuppl (list[ok_values], list[err_values]) |
+| `Result.hydrate(data)` | Deserialize from dict |
+| `Result.hydrate_as(data, *, ok, err)` | Typed deserialization with decoders |
 | `Ok(value)` | Create Ok instance |
 | `Err(error)` | Create Err instance |
 | `safe(fn, config?)` | Wrap throwing function with optional retry |
