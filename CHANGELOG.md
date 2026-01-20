@@ -1,6 +1,14 @@
 # Change Log
 
-## [ v0.3.0 ] - 2026-01-19
+## [v0.4.0] - yyyy-mm-dd
+
+### Added
+
+### Changed
+
+### Fixed
+--
+## [v0.3.0] - 2026-01-19
 
 ### Added
 
