@@ -387,15 +387,27 @@ result = await safe_async(
             "times": 3,
             "delay_ms": 100,
             "backoff": "exponential",
-            # Only retry when the enriched error is marked as retryable
             "should_retry": lambda e: e["retryable"],
         },
     },
 )
 
-# Note: should_retry must be synchronous. For async decisions (e.g. feature flags,
-# rate limits in Redis), fetch that state inside the catch handler and encode it
-# into the error object that should_retry receives.
+# Async predicates: For async decisions (e.g. feature flags, rate limits)
+async def check_rate_limit() -> bool:
+    return True
+
+result = await safe_async(
+    lambda: call_api("https://api.example.com"),
+    {
+        "retry": {
+            "times": 3,
+            "delay_ms": 100,
+            "backoff": "exponential",
+            # should_retry can be async in safe_async
+            "should_retry": async lambda e: await check_rate_limit(),
+        },
+    },
+)
 ```
 
 ## UnhandledException

@@ -7,11 +7,13 @@ from typing import (
     overload,
     TypeAlias,
     cast,
+    Union,
 )
 from typing_extensions import TypedDict
 import asyncio
+import inspect
 
-from .result import Result, Ok, Err, try_or_panic
+from .result import Result, Ok, Err, try_or_panic, try_or_panic_async
 from .error import UnhandledException, panic
 
 A = TypeVar("A")
@@ -22,6 +24,9 @@ ErrT = TypeVar("ErrT", default=UnhandledException)
 # concrete error type (e.g., Callable[[MyError], bool]); helpers like
 # retry_config(_async) infer that type from the predicate.
 ShouldRetryCallable: TypeAlias = Callable[[ErrT], bool]
+ShouldRetryAsyncCallable: TypeAlias = Union[
+    Callable[[ErrT], bool], Callable[[ErrT], Awaitable[bool]]
+]
 
 
 class RetryConfig(TypedDict, Generic[ErrT], total=False):
@@ -45,13 +50,13 @@ class RetryConfigAsync(TypedDict, Generic[ErrT], total=False):
         delay_ms: Delay in milliseconds between retries.
         backoff: Backoff strategy (constant, linear, or exponential).
         should_retry: Predicate to decide if an error should trigger a retry.
-            Defaults to always retry.
+            Can be synchronous or asynchronous. Defaults to always retry.
     """
 
     times: int
     delay_ms: int
     backoff: Literal["constant", "linear", "exponential"]
-    should_retry: ShouldRetryCallable[ErrT]
+    should_retry: ShouldRetryAsyncCallable[ErrT]
 
 
 class SafeConfig(TypedDict, Generic[ErrT], total=False):
@@ -94,12 +99,14 @@ def retry_config_async(
     times: int,
     delay_ms: int = 0,
     backoff: Literal["constant", "linear", "exponential"] = "constant",
-    should_retry: ShouldRetryCallable[E] | None = None,
+    should_retry: ShouldRetryAsyncCallable[E] | None = None,
 ) -> SafeConfigAsync[E]:
     """Helper to build a typed retry config for safe_async.
 
     The type of ``should_retry`` drives the error type ``E`` so callers can
     avoid annotating the whole config explicitly.
+
+    Note: should_retry can be either synchronous or asynchronous.
     """
 
     cfg: RetryConfigAsync[E] = {
@@ -289,12 +296,12 @@ async def safe_async(
     def _always_retry(_: E) -> bool:
         return True
 
-    should_retry_fn: ShouldRetryCallable[E] | None = (
+    should_retry_fn: ShouldRetryAsyncCallable[E] | None = (
         retry_config["should_retry"]
         if retry_config and "should_retry" in retry_config
         else None
     )
-    should_retry: ShouldRetryCallable[E] = should_retry_fn or _always_retry
+    should_retry: ShouldRetryAsyncCallable[E] = should_retry_fn or _always_retry
 
     result = await execute()
 
@@ -302,9 +309,16 @@ async def safe_async(
         if result.is_ok():
             break
         error = result.unwrap_err()
-        should_continue = try_or_panic(
-            lambda: should_retry(cast(E, error)), "should_retry predicate threw"
-        )
+
+        if inspect.iscoroutinefunction(should_retry):
+            should_continue = await try_or_panic_async(
+                lambda: should_retry(cast(E, error)), "should_retry predicate threw"
+            )
+        else:
+            should_continue = try_or_panic(
+                lambda: should_retry(cast(E, error)), "should_retry predicate threw"
+            )
+
         if not should_continue:
             break
         delay = get_delay(attempt, retry_config)

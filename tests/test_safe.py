@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from okresult import safe, safe_async, UnhandledException, Panic, fn
 
 
@@ -443,3 +444,130 @@ class TestSafeAsync:
                     always_fails,
                     {"retry": {"times": 3, "should_retry": predicate}},
                 )
+
+        @pytest.mark.asyncio
+        async def test_async_predicate_returns_true(self) -> None:
+            attempts = 0
+
+            async def flaky() -> int:
+                nonlocal attempts
+                attempts += 1
+                if attempts < 3:
+                    raise ValueError("Not yet")
+                return 42
+
+            async def should_retry_async(_: Exception) -> bool:
+                await asyncio.sleep(0.001)
+                return True
+
+            result = await safe_async(
+                flaky,
+                {"retry": {"times": 5, "should_retry": should_retry_async}},
+            )
+
+            assert result.is_ok()
+            assert result.unwrap() == 42
+            assert attempts == 3
+
+        @pytest.mark.asyncio
+        async def test_async_predicate_returns_false(self) -> None:
+            attempts = 0
+
+            class Error:
+                def __init__(self, retryable: bool, msg: str) -> None:
+                    self.retryable = retryable
+                    self.msg = msg
+
+            async def flaky() -> int:
+                nonlocal attempts
+                attempts += 1
+                raise ValueError("retryable" if attempts == 1 else "fatal")
+
+            async def should_retry_async(e: Error) -> bool:
+                await asyncio.sleep(0.001)
+                return e.retryable
+
+            result = await safe_async(
+                {
+                    "try_": flaky,
+                    "catch": fn[Exception, Error](
+                        lambda e: Error(retryable=str(e) == "retryable", msg=str(e))
+                    ),
+                },
+                {
+                    "retry": {
+                        "times": 3,
+                        "delay_ms": 1,
+                        "backoff": "constant",
+                        "should_retry": should_retry_async,
+                    }
+                },
+            )
+
+            assert attempts == 2
+            assert result.is_err()
+            err = result.unwrap_err()
+            assert isinstance(err, Error)
+            assert err.msg == "fatal"
+
+        @pytest.mark.asyncio
+        async def test_async_predicate_throws_panic(self) -> None:
+            async def always_fails() -> int:
+                raise ValueError("fail")
+
+            async def predicate_throws(_: Exception) -> bool:
+                raise RuntimeError("async predicate bug")
+
+            with pytest.raises(Panic):
+                await safe_async(
+                    always_fails,
+                    {"retry": {"times": 3, "should_retry": predicate_throws}},
+                )
+
+        @pytest.mark.asyncio
+        async def test_async_predicate_with_io_simulation(self) -> None:
+            attempts = 0
+            retry_checks = 0
+
+            class ApiError:
+                def __init__(self, status: int, msg: str) -> None:
+                    self.status = status
+                    self.msg = msg
+
+            async def call_api() -> str:
+                nonlocal attempts
+                attempts += 1
+                if attempts <= 2:
+                    raise ConnectionError(f"Network error {attempts}")
+                return "success"
+
+            async def check_should_retry(e: ApiError) -> bool:
+                nonlocal retry_checks
+                retry_checks += 1
+                await asyncio.sleep(0.001)
+                return e.status == 503
+
+            result = await safe_async(
+                {
+                    "try_": call_api,
+                    "catch": fn[Exception, ApiError](
+                        lambda e: ApiError(
+                            status=503 if isinstance(e, ConnectionError) else 500,
+                            msg=str(e),
+                        )
+                    ),
+                },
+                {
+                    "retry": {
+                        "times": 5,
+                        "delay_ms": 1,
+                        "backoff": "constant",
+                        "should_retry": check_should_retry,
+                    }
+                },
+            )
+
+            assert result.is_ok()
+            assert result.unwrap() == "success"
+            assert attempts == 3  # Initial + 2 retries
+            assert retry_checks == 2  # Checked twice (after 1st and 2nd failure)
