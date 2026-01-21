@@ -182,7 +182,6 @@ class Result(Generic[A, E], ABC):
             gen = fn()
 
         try:
-
             yielded = gen.send(None)
 
             while True:

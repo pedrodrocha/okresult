@@ -199,7 +199,6 @@ class TestTaggedError:
 
 
 class TestUnhandledException:
-
     def test_wraps_exception_cause(self) -> None:
         cause = ValueError("root cause")
         error = UnhandledException(cause)

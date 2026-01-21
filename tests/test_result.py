@@ -140,7 +140,6 @@ class TestResult:
             assert "Custom message" in str(exc_info.value)
 
     class TestUnwrapOr:
-
         def test_returns_value_for_ok(self) -> None:
             ok = Result.ok(100)
             assert ok.unwrap_or(0) == 100
@@ -724,7 +723,6 @@ class TestResult:
 
     class TestMatch:
         def test_matches_ok(self) -> None:
-
             result = Ok[int, Never](42).match(
                 {
                     "ok": fn[int, int](lambda x: x * 2),
